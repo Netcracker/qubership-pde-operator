@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pde-argo-extension.uiConfigMapName" . }}
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+  labels:
+    {{- include "pde-argo-extension.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ui-config
+data:
+  PDE_EXTENSION_NAME: {{ include "pde-argo-extension.extensionName" . | quote }}
+  PDE_ANCHOR_PROJECT: {{ .Values.ui.config.project | quote }}
+  PDE_ANCHOR_APPLICATION: {{ .Values.ui.config.application | quote }}

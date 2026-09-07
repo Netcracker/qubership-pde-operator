@@ -1,0 +1,16 @@
+{{- if .Values.argoPatches.enabled }}
+# Register PDE proxy extension -> backend Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+data:
+  extension.config.{{ include "pde-argo-extension.extensionName" . }}: |
+    connectionTimeout: 2s
+    keepAlive: 15s
+    idleConnectionTimeout: 60s
+    maxIdleConnections: 30
+    services:
+      - url: {{ include "pde-argo-extension.backendServiceUrl" . }}
+{{- end }}

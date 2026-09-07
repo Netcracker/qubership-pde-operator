@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pde-argo-extension.backendName" . }}
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+  labels:
+    {{- include "pde-argo-extension.labels" . | nindent 4 }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.extension.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "pde-argo-extension.selectorLabels" . | nindent 4 }}
