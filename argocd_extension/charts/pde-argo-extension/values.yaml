@@ -1,0 +1,45 @@
+fullnameOverride: pde-argo-extension
+
+argocd:
+  namespace: argocd
+
+# Proxy extension name -> browser calls /extensions/<name>/...
+# Must match argocd-cm proxy key, RBAC invoke, and ConfigMap key PDE_EXTENSION_NAME.
+extension:
+  name: pde-argo-extension
+  port: 8081
+
+# Merge partial patches onto an already-installed Argo CD (cmd-params, argocd-cm, argocd-server).
+# Default 'false' - safe for upstream Helm (those objects already exist -> install would fail).
+# Enable only on custom Helm platforms that support such patches.
+argoPatches:
+  enabled: false
+
+backend:
+  image:
+    repository: ghcr.io/netcracker/pde-argo-extension-backend
+    tag: dev
+    pullPolicy: IfNotPresent
+  replicas: 1
+  operatorBaseUrl: http://pde-operator.pde-system.svc:8000
+  operatorApiToken: ""
+  operatorSecret:
+    name: pde-operator
+    namespace: pde-system
+    key: api-admin-token
+  # Writers for mutate APIs (matched against Argocd-Username / Argocd-User-Groups).
+  # Seeded into ConfigMap pde-argo-extension-backend-rbac.
+  rbac:
+    writeGroups: []
+    writeUsers:
+      - admin
+  resources: {}
+
+ui:
+  image:
+    repository: ghcr.io/netcracker/pde-argo-extension-ui
+    tag: dev
+    pullPolicy: IfNotPresent
+  config:
+    application: argocd:pde-operator # PDE_ANCHOR_APPLICATION / Argocd-Application-Name
+    project: default # PDE_ANCHOR_PROJECT / Argocd-Project-Name

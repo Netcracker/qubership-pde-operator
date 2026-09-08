@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pde-argo-extension.backendRbacConfigMapName" . }}
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+  labels:
+    {{- include "pde-argo-extension.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-rbac
+data:
+  PDE_RBAC_WRITE_GROUPS: {{ join "," (.Values.backend.rbac.writeGroups | default list) | quote }}
+  PDE_RBAC_WRITE_USERS: {{ join "," (.Values.backend.rbac.writeUsers | default list) | quote }}

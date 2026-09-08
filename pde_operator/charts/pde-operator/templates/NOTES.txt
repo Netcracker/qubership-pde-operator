@@ -1,0 +1,28 @@
+Admin token:
+
+  kubectl -n {{ .Release.Namespace }} get secret {{ include "pde-operator.fullname" . }} \
+    -o jsonpath='{.data.api-admin-token}' | base64 -d; echo
+
+Service: {{ include "pde-operator.operatorBaseUrl" . }}
+Probes:  /health  /ready
+{{- if .Values.ui.enabled }}
+UI:      /ui
+{{- end }}
+Docs:    /docs
+
+External secrets (Job mount, optional): {{ include "pde-operator.externalSecretsName" . }}
+  path: {{ .Values.externalSecrets.mountPath }}
+Job runtime entrypoint: {{ include "pde-operator.jobRuntimeConfigMapName" . }}
+  path: {{ .Values.jobRuntime.mountPath }}/job-entrypoint.py
+{{- if .Values.postgres.enabled }}
+
+Postgres: {{ include "pde-operator.fullname" . }}-postgres:{{ .Values.postgres.port }}
+{{- else }}
+
+Postgres: {{ include "pde-operator.postgresHost" . }}:{{ include "pde-operator.postgresPort" . }} (external)
+{{- end }}
+{{- if .Values.minio.enabled }}
+MinIO:    {{ include "pde-operator.minioEndpoint" . }}
+{{- else }}
+MinIO:    {{ include "pde-operator.minioEndpoint" . }} (external)
+{{- end }}

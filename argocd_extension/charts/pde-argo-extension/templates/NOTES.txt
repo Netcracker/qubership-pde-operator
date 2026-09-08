@@ -1,0 +1,30 @@
+PDE Argo extension installed (backend + UI ConfigMap + backend RBAC ConfigMap).
+
+Backend:  {{ include "pde-argo-extension.backendServiceUrl" . }}
+Proxy:    /extensions/{{ include "pde-argo-extension.extensionName" . }}
+UI CM:    {{ include "pde-argo-extension.uiConfigMapName" . }}
+          application={{ .Values.ui.config.application }} project={{ .Values.ui.config.project }}
+RBAC CM:  {{ include "pde-argo-extension.backendRbacConfigMapName" . }}
+Operator: {{ .Values.backend.operatorBaseUrl }}
+{{- if .Values.argoPatches.enabled }}
+
+argoPatches.enabled=true — chart emitted Argo merge templates (cmd-params / argocd-cm / argocd-server).
+{{- else }}
+
+Next: follow argocd_extension/README.md —
+  1) Append RBAC lines to argocd-rbac-cm
+  2) kubectl patch argocd-cmd-params-cm, argocd-cm, argocd-server
+  3) Restart argocd-server
+{{- end }}
+
+  kubectl -n {{ include "pde-argo-extension.argocdNamespace" . }} rollout restart deploy/argocd-server
+
+Reconfigure UI headers:
+  kubectl -n {{ include "pde-argo-extension.argocdNamespace" . }} edit cm {{ include "pde-argo-extension.uiConfigMapName" . }}
+  kubectl -n {{ include "pde-argo-extension.argocdNamespace" . }} rollout restart deploy/argocd-server
+
+Reconfigure users/groups with write access (then restart backend):
+  kubectl -n {{ include "pde-argo-extension.argocdNamespace" . }} edit cm {{ include "pde-argo-extension.backendRbacConfigMapName" . }}
+  kubectl -n {{ include "pde-argo-extension.argocdNamespace" . }} rollout restart deploy/{{ include "pde-argo-extension.backendName" . }}
+
+Open Argo CD -> sidebar **PDE Runs**.

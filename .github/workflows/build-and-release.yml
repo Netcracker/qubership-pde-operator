@@ -1,0 +1,198 @@
+name: Release Next Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Version increment type"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      use_custom_version:
+        description: "Use custom_version instead of increment"
+        required: true
+        default: false
+        type: boolean
+      custom_version:
+        description: "Specific version to release (e.g. 1.0.0)"
+        required: true
+        default: "0.1.0"
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.save-release-version.outputs.release_version }}
+    steps:
+      - name: Prepare app token
+        if: ${{ vars.GH_BUMP_VERSION_APP_ID != '' }}
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.GH_BUMP_VERSION_APP_ID }}
+          private-key: ${{ secrets.GH_BUMP_VERSION_APP_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Bump version
+        shell: bash
+        env:
+          USE_CUSTOM: ${{ inputs.use_custom_version }}
+          CUSTOM_VERSION: ${{ inputs.custom_version }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          set -euo pipefail
+          cd pde_operator
+          CURRENT_VERSION=$(grep -E '^version = "' pyproject.toml | head -1 | sed -E 's/version = "([^"]+)"/\1/')
+          if [ "$USE_CUSTOM" = "true" ]; then
+            if [ "$CUSTOM_VERSION" != "$CURRENT_VERSION" ]; then
+              uvx hatch version "$CUSTOM_VERSION"
+            else
+              echo "Version already at ${CUSTOM_VERSION}; skipping version bump."
+            fi
+          else
+            uvx hatch version "$RELEASE_TYPE"
+          fi
+          uv lock
+
+      - name: Sync Helm chart versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_VERSION=$(grep -E '^version = "' pde_operator/pyproject.toml | head -1 | sed -E 's/version = "([^"]+)"/\1/')
+          for chart in pde_operator/charts/pde-operator/Chart.yaml argocd_extension/charts/pde-argo-extension/Chart.yaml; do
+            sed -i -E "s/^version: .*/version: ${NEW_VERSION}/" "$chart"
+            sed -i -E "s/^appVersion: .*/appVersion: \"${NEW_VERSION}\"/" "$chart"
+          done
+
+      - name: Save release version
+        id: save-release-version
+        shell: bash
+        run: |
+          NEW_VERSION=$(grep -E '^version = "' pde_operator/pyproject.toml | head -1 | sed -E 's/version = "([^"]+)"/\1/')
+          echo "release_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        working-directory: pde_operator
+        run: |
+          uv sync --frozen
+          uv run --frozen pytest
+
+      - name: Commit changes
+        shell: bash
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add pde_operator/pyproject.toml pde_operator/uv.lock pde_operator/charts/pde-operator/Chart.yaml argocd_extension/charts/pde-argo-extension/Chart.yaml
+          if git diff --cached --quiet; then
+            echo "No version changes to commit; skipping commit."
+          else
+            git commit -m "chore: bump version to ${{ steps.save-release-version.outputs.release_version }}"
+            git push -u origin "${{ github.ref_name }}"
+          fi
+
+  build-ui:
+    needs: [bump-version]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Build React bundle
+        working-directory: argocd_extension/ui
+        run: |
+          npm install
+          npm run build
+
+      - name: Upload UI bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-dist
+          path: argocd_extension/ui/dist
+
+  build-images:
+    needs: [bump-version, build-ui]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: pde-operator
+            image: pde-operator
+            dockerfile: ./pde_operator/Dockerfile
+            context: .
+            needs-ui: true
+          - name: pde-argo-extension-backend
+            image: pde-argo-extension-backend
+            dockerfile: ./argocd_extension/backend/Dockerfile
+            context: ./argocd_extension/backend
+            needs-ui: false
+          - name: pde-argo-extension-ui
+            image: pde-argo-extension-ui
+            dockerfile: ./argocd_extension/ui/Dockerfile
+            context: ./argocd_extension/ui
+            needs-ui: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Build and publish image
+        uses: netcracker/qubership-workflow-hub/actions/docker-action@v2.7.0
+        with:
+          ref: ${{ github.ref_name }}
+          checkout: false
+          download-artifact: ${{ matrix.needs-ui }}
+          download-artifact-name: ui-dist
+          download-artifact-path: argocd_extension/ui/dist
+          custom-image-name: ${{ matrix.image }}
+          component: '[{"name":"${{ matrix.name }}","dockerfile":"${{ matrix.dockerfile }}","build_context":"${{ matrix.context }}"}]'
+          platforms: linux/amd64
+          tags: latest,v${{ needs.bump-version.outputs.release_version }}
+          dry-run: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-github-release:
+    needs: [bump-version, build-images]
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: Netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@v2.7.0
+    with:
+      version: ${{ needs.bump-version.outputs.release_version }}
+      ref: ${{ github.ref_name }}
+      publish: true

@@ -1,0 +1,133 @@
+nameOverride: ""
+# Optional: shorter resource names, e.g. pde-operator
+fullnameOverride: "pde-operator"
+
+image:
+  repository: ghcr.io/netcracker/pde-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  listClusterNamespaces: true
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ui:
+  enabled: true
+
+# When true, operator Pod runs pde-operator-init-db as an init container
+dbInit:
+  enabled: true
+
+auth:
+  # Empty -> chart generates once and reuses via Secret lookup on upgrade
+  apiAdminToken: ""
+  jobTokenSigningKey: ""
+  inputEncryptionKey: ""
+
+operator:
+  k8sNamespace: ""  # Empty -> release namespace
+  operatorBaseUrl: ""  # Empty -> http://<service>.<namespace>.svc:<port> (in-cluster Jobs)
+  executionUrlBase: ""  # Empty -> same as operatorBaseUrl (override for port-forward / external URL)
+  logLevel: INFO
+  apiPrefix: /api/v1
+  k8sJobCreationEnabled: true
+  k8sJobTtlSeconds: 60
+  queueEnabled: true
+  queuePollSeconds: 5
+  maxConcurrentRuns: 8
+  reconcilerEnabled: true
+  reconcilerIntervalSeconds: 30
+  reconcilerStuckTimeoutSeconds: 300
+  cancelGraceSeconds: 60
+  pdeDefaultImage: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1
+  pdeDeliveryStatusInterval: 5
+  pdeDeliveryReportInterval: 15
+  pdeDeliveryLogInterval: 15
+  retentionEnabled: true
+  retentionDays: 30
+  retentionCron: "0 0 * * *"
+  jobTokenTtlSeconds: 172800
+  jobResources:  # Default spawned PDE Run Job resources
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  minioEnabled: true
+  minioRegion: us-east-1
+
+# Shared Secret mounted into every PDE run Job (files + envFrom + AtlasConfig). Missing Secret does not block Jobs.
+# When another controller owns the Secret, set create=false and keep name aligned.
+externalSecrets:
+  create: true
+  name: ""  # Empty -> {{ fullname }}-external-secrets
+  mountPath: /var/run/secrets/pde-external
+
+jobRuntime:
+  name: ""  # Empty -> {{ fullname }}-job-runtime
+  mountPath: /opt/pde-operator/job-runtime
+
+postgres:
+  enabled: true
+  image: docker.io/library/postgres:16-alpine
+  port: 5432
+  persistence:
+    size: 500Mi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  auth:
+    username: pde
+    password: pde
+    database: pde_operator
+  external:
+    host: ""
+    port: 5432
+    username: pde
+    password: ""
+    database: pde_operator
+
+minio:
+  enabled: true
+  image: docker.io/minio/minio:latest
+  mcImage: docker.io/minio/mc:latest
+  apiPort: 9000
+  consolePort: 9001
+  persistence:
+    size: 500Mi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  auth:
+    rootUser: pde
+    rootPassword: pdepdepde
+  bucket: pde-artifacts
+  external:
+    endpoint: ""
+    accessKey: ""
+    secretKey: ""
+    bucket: pde-artifacts
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
