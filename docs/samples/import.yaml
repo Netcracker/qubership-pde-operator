@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Profile
 id: default
-pde_image: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1
+pde_image: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2
 env_vars:
   PIPELINES_DECLARATIVE_EXECUTOR_FAIL_ON_MISSING_SOPS: "false"
   PIPELINES_DECLARATIVE_EXECUTOR_ENCRYPT_OUTPUT_SECURE_PARAMS: "false"

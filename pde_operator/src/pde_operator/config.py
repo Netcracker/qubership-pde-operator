@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     reconciler_stuck_timeout_seconds: int = 300  # fail stuck runs with no progress (5 min)
     cancel_grace_seconds: int = 60  # wait after SIGINT before hard-stopping the Job
 
-    pde_default_image: str = "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1"
+    pde_default_image: str = "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2"
     pde_delivery_status_interval: int = 5
     pde_delivery_report_interval: int = 15
     pde_delivery_log_interval: int = 15

@@ -45,7 +45,7 @@ def _settings(**overrides) -> Settings:
 def _profile() -> Profile:
     return Profile(
         id="default",
-        pde_image="ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1",
+        pde_image="ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2",
         env_vars={},
     )
 
@@ -57,7 +57,7 @@ def _parent_run(**overrides) -> Run:
         "profile_id": "default",
         "status": RunStatus.FAILED,
         "created_from_template_id": uuid4(),
-        "pde_image": "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1",
+        "pde_image": "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2",
         "pipeline_data": "https://example.com/pipeline.yaml",
         "pipeline_vars": "ENV=test",
         "is_dry_run": False,

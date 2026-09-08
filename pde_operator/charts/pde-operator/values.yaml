@@ -46,7 +46,7 @@ operator:
   reconcilerIntervalSeconds: 30
   reconcilerStuckTimeoutSeconds: 300
   cancelGraceSeconds: 60
-  pdeDefaultImage: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1
+  pdeDefaultImage: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2
   pdeDeliveryStatusInterval: 5
   pdeDeliveryReportInterval: 15
   pdeDeliveryLogInterval: 15
