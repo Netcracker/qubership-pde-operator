@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pde-operator.fullname" . }}
+  labels:
+    {{- include "pde-operator.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "pde-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pde-operator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: operator
+    spec:
+      serviceAccountName: {{ include "pde-operator.serviceAccountName" . }}
+      enableServiceLinks: false
+      {{- if .Values.dbInit.enabled }}
+      initContainers:
+        - name: db-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["pde-operator-init-db"]
+          env:
+            - name: PDE_OPERATOR_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: database-url
+            - name: PDE_OPERATOR_PDE_DEFAULT_IMAGE
+              value: {{ .Values.operator.pdeDefaultImage | quote }}
+      {{- end }}
+      containers:
+        - name: operator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "pde-operator.fullname" . }}
+          env:
+            - name: PDE_OPERATOR_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: database-url
+            - name: PDE_OPERATOR_API_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: api-admin-token
+            - name: PDE_OPERATOR_JOB_TOKEN_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: job-token-signing-key
+            - name: PDE_OPERATOR_INPUT_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: input-encryption-key
+            - name: PDE_OPERATOR_MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: minio-access-key
+            - name: PDE_OPERATOR_MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-operator.fullname" . }}
+                  key: minio-secret-key
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

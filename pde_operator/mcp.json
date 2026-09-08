@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "pde-operator-mcp-server": {
+      "type": "http",
+      "url": "http://localhost:8000/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer pde-stable-admin-token"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+name: pde-operator
+version: 1.0.0
+description: APM project for pde-operator
+author: Qubership
+
+targets:
+- cursor
+dependencies:
+  apm: []
+  mcp: []
+includes: auto
+scripts: {}

@@ -1,0 +1,10 @@
+{{- if .Values.argoPatches.enabled }}
+# Enable Argo CD proxy extensions (requires argocd-server restart after apply).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+data:
+  server.enable.proxy.extension: "true"
+{{- end }}

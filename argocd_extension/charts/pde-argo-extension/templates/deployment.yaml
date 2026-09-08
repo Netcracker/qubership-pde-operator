@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pde-argo-extension.backendName" . }}
+  namespace: {{ include "pde-argo-extension.argocdNamespace" . }}
+  labels:
+    {{- include "pde-argo-extension.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pde-argo-extension.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pde-argo-extension.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.extension.port }}
+          env:
+            - name: LISTEN_ADDR
+              value: ":{{ .Values.extension.port }}"
+            - name: PDE_OPERATOR_BASE_URL
+              value: {{ .Values.backend.operatorBaseUrl | quote }}
+            - name: PDE_OPERATOR_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pde-argo-extension.backendName" . }}
+                  key: api-admin-token
+          envFrom:
+            - configMapRef:
+                name: {{ include "pde-argo-extension.backendRbacConfigMapName" . }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          {{- with .Values.backend.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

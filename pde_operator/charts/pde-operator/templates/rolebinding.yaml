@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "pde-operator.fullname" . }}
+  labels:
+    {{- include "pde-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "pde-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "pde-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Profile
+id: default
+pde_image: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.1
+env_vars:
+  PIPELINES_DECLARATIVE_EXECUTOR_FAIL_ON_MISSING_SOPS: "false"
+  PIPELINES_DECLARATIVE_EXECUTOR_ENCRYPT_OUTPUT_SECURE_PARAMS: "false"
+  PIPELINES_DECLARATIVE_EXECUTOR_AUTH_RULES: [ { "host": "gitlab.com", "type": "no_auth", "is_gitlab_url": true } ]
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+---
+apiVersion: v1
+kind: SimpleRunTemplate
+name: Dev Deploy
+description: Example deploy pipeline.
+tags:
+  - demo
+  - deploy
+pipeline_data: https://gitlab.com/quber-test/quber-pipeline/-/blob/main/pipeline_configs/samples/deploy.yaml
+pipeline_vars: |
+  ENV_NAME=cloud-env-01
+---
+apiVersion: v1
+kind: SimpleRunTemplate
+name: Dev Cleanup
+description: Example cleanup pipeline.
+tags:
+  - demo
+  - cleanup
+pipeline_data: https://gitlab.com/quber-test/quber-pipeline/-/blob/main/pipeline_configs/samples/cleanup.yaml
+pipeline_vars: |
+  ENV_NAME=cloud-env-01
+---
+apiVersion: v1
+kind: SimpleRunTemplate
+name: Dev Debug Template
+description: dev debug pipelines
+tags:
+  - demo
+  - debug
+  - dev
+pipeline_data: "https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/samples/sample_long_pipeline.yaml;\nhttps://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/debug_logs/pipeline_complex.yaml;"
+pipeline_vars: |
+  SLEEP_TIME=10
+  SLEEP_DURATION=2
+  PIPELINE_DATA_DIR=https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/debug_logs/

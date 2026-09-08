@@ -1,0 +1,28 @@
+{
+  "name": "pde-operator-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:extension && npm run build:standalone",
+    "build:extension": "webpack --config webpack.extension.cjs --mode production",
+    "build:standalone": "webpack --config webpack.standalone.cjs --mode production"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.6.0"
+  },
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^6.2.1",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "mini-css-extract-plugin": "^2.9.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.7.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^6.0.1"
+  }
+}

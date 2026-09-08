@@ -1,0 +1,12 @@
+{{- if .Values.rbac.listClusterNamespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "pde-operator.fullname" . }}-namespaces
+  labels:
+    {{- include "pde-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+{{- end }}

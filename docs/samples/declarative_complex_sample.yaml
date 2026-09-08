@@ -1,0 +1,211 @@
+apiVersion: v1
+kind: DeclarativeRunTemplate
+
+workflow:
+  name: Declarative Sample
+
+variables: !reference [.ui-variables, variables]
+
+.ui-variables:
+  variables:
+    PIPELINE_URL:
+      value: "https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/samples/deploy.yaml"
+      description: Pipeline definition URL
+
+    PROFILE:
+      value: "default"
+      description: Execution profile
+
+    DRY_RUN:
+      value: false
+      description: Dry run
+
+    LOG_LEVEL:
+      value: "INFO"
+      description: Log level
+      options:
+        - "INFO"
+        - "DEBUG"
+        - "WARNING"
+        - "ERROR"
+
+    DEPLOY_MODE:
+      value: "application"
+      description: Deploy mode
+      options:
+        - "application"
+        - "library"
+
+    ENVIRONMENT:
+      value: "stage"
+      description: Target environment
+      options:
+        - "dev"
+        - "stage"
+        - "prod"
+
+    CLUSTER:
+      value: "shared-stage"
+      description: Target cluster
+      options:
+        - "shared-dev"
+        - "shared-stage"
+        - "prod-eu1"
+
+    NAMESPACE:
+      value: ""
+      description: Target namespace
+
+    APP_NAME:
+      value: ""
+      description: Application name
+
+    IMAGE_TAG:
+      value: ""
+      description: Container image tag to deploy
+
+    PIPELINE_CONFIG_DIR:
+      value: ""
+      description: Select Pipeline Config Dir from the Git repository
+
+    LIBRARY_NAME:
+      value: ""
+      description: Library name
+
+    RELEASE_VERSION:
+      value: ""
+      description: Release version
+
+    RELEASE_NOTES:
+      value: ""
+      description: Optional notes stored as an environment variable for audit/debugging
+
+    APPROVAL_TICKET:
+      value: ""
+      description: Required only for production application deploys
+
+    SERVICE_ACCOUNT:
+      value: "deploy-bot"
+      description: Service account
+
+  variables-fields-customization:
+    PIPELINE_URL:
+      settings:
+        bind_to: pipeline_data
+        required: true
+        readonly: true
+        label: Pipeline data
+
+    PROFILE:
+      data:
+        interface: Profiles
+      settings:
+        bind_to: profile
+        required: true
+        select_type: single
+        label: Profile
+
+    DRY_RUN:
+      settings:
+        bind_to: is_dry_run
+        label: Dry run
+
+    LOG_LEVEL:
+      settings:
+        bind_to: log_level
+        select_type: single
+        label: Log level
+
+    DEPLOY_MODE:
+      settings:
+        select_type: single
+        required: true
+        label: Deploy mode
+
+    ENVIRONMENT:
+      settings:
+        select_type: single
+        required: true
+        label: Environment
+
+    CLUSTER:
+      settings:
+        select_type: single
+        required: true
+        label: Cluster
+
+    NAMESPACE:
+      data:
+        interface: ClusterNamespaces
+        name_regex: "^kube.*"
+      settings:
+        select_type: single
+        required: true
+        label: Namespace
+
+    APP_NAME:
+      settings:
+        label: Application name
+        hide_condition: "DEPLOY_MODE!='application'"
+        required_condition: "DEPLOY_MODE=='application'"
+        validators:
+          - type: pattern
+            value: "^[a-z0-9-]+$"
+            message: Use lowercase letters, digits, and dashes only.
+
+    IMAGE_TAG:
+      settings:
+        label: Image tag
+        hide_condition: "DEPLOY_MODE!='application'"
+        required_condition: "DEPLOY_MODE=='application'"
+
+    PIPELINE_CONFIG_DIR:
+      data:
+        interface: GitFiles
+        url: https://github.com/Netcracker/qubership-pipelines-declarative-executor.git
+        ref: sample_pipelines
+        glob: "**/pipeline_configs/*"
+        select_directories: true
+        strip_extension: false
+        use_full_path: false
+      settings:
+        select_type: single
+        label: Pipeline Config Dir
+        hide_condition: "DEPLOY_MODE!='application'"
+
+    LIBRARY_NAME:
+      settings:
+        label: Library name
+        hide_condition: "DEPLOY_MODE!='library'"
+        required_condition: "DEPLOY_MODE=='library'"
+        validators:
+          - type: pattern
+            value: "^[a-z0-9-]+$"
+            message: Use lowercase letters, digits, and dashes only.
+
+    RELEASE_VERSION:
+      settings:
+        label: Release version
+        hide_condition: "DEPLOY_MODE!='library'"
+        required_condition: "DEPLOY_MODE=='library'"
+        validators:
+          - type: pattern
+            value: "^v\\d+\\.\\d+\\.\\d+$"
+            message: Use semantic version format like v1.2.3.
+
+    RELEASE_NOTES:
+      settings:
+        bind_to: env_var
+        label: Release notes
+
+    APPROVAL_TICKET:
+      settings:
+        label: Approval ticket
+        hide_condition: "ENVIRONMENT!='prod'"
+        required_condition: "ENVIRONMENT=='prod'"
+
+    SERVICE_ACCOUNT:
+      settings:
+        label: Service account
+        hidden: true
+        readonly: true

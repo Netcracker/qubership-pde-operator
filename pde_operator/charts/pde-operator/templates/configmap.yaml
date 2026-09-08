@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pde-operator.fullname" . }}
+  labels:
+    {{- include "pde-operator.labels" . | nindent 4 }}
+data:
+  PDE_OPERATOR_HOST: "0.0.0.0"
+  PDE_OPERATOR_PORT: {{ .Values.service.port | quote }}
+  PDE_OPERATOR_LOG_LEVEL: {{ .Values.operator.logLevel | quote }}
+  PDE_OPERATOR_UI_ENABLED: {{ .Values.ui.enabled | quote }}
+  PDE_OPERATOR_API_PREFIX: {{ .Values.operator.apiPrefix | quote }}
+  PDE_OPERATOR_EXECUTION_URL_BASE: {{ include "pde-operator.executionUrlBase" . | quote }}
+  PDE_OPERATOR_OPERATOR_BASE_URL: {{ include "pde-operator.operatorBaseUrl" . | quote }}
+  PDE_OPERATOR_K8S_NAMESPACE: {{ include "pde-operator.k8sNamespace" . | quote }}
+  PDE_OPERATOR_K8S_JOB_CREATION_ENABLED: {{ .Values.operator.k8sJobCreationEnabled | quote }}
+  PDE_OPERATOR_K8S_JOB_TTL_SECONDS: {{ .Values.operator.k8sJobTtlSeconds | quote }}
+  PDE_OPERATOR_QUEUE_ENABLED: {{ .Values.operator.queueEnabled | quote }}
+  PDE_OPERATOR_QUEUE_POLL_SECONDS: {{ .Values.operator.queuePollSeconds | quote }}
+  PDE_OPERATOR_MAX_CONCURRENT_RUNS: {{ .Values.operator.maxConcurrentRuns | quote }}
+  PDE_OPERATOR_RECONCILER_ENABLED: {{ .Values.operator.reconcilerEnabled | quote }}
+  PDE_OPERATOR_RECONCILER_INTERVAL_SECONDS: {{ .Values.operator.reconcilerIntervalSeconds | quote }}
+  PDE_OPERATOR_RECONCILER_STUCK_TIMEOUT_SECONDS: {{ .Values.operator.reconcilerStuckTimeoutSeconds | quote }}
+  PDE_OPERATOR_CANCEL_GRACE_SECONDS: {{ .Values.operator.cancelGraceSeconds | quote }}
+  PDE_OPERATOR_PDE_DEFAULT_IMAGE: {{ .Values.operator.pdeDefaultImage | quote }}
+  PDE_OPERATOR_PDE_DELIVERY_STATUS_INTERVAL: {{ .Values.operator.pdeDeliveryStatusInterval | quote }}
+  PDE_OPERATOR_PDE_DELIVERY_REPORT_INTERVAL: {{ .Values.operator.pdeDeliveryReportInterval | quote }}
+  PDE_OPERATOR_PDE_DELIVERY_LOG_INTERVAL: {{ .Values.operator.pdeDeliveryLogInterval | quote }}
+  PDE_OPERATOR_K8S_JOB_RESOURCES: {{ .Values.operator.jobResources | toJson | quote }}
+  PDE_OPERATOR_RETENTION_ENABLED: {{ .Values.operator.retentionEnabled | quote }}
+  PDE_OPERATOR_RETENTION_DAYS: {{ .Values.operator.retentionDays | quote }}
+  PDE_OPERATOR_RETENTION_CRON: {{ .Values.operator.retentionCron | quote }}
+  PDE_OPERATOR_JOB_TOKEN_TTL_SECONDS: {{ .Values.operator.jobTokenTtlSeconds | quote }}
+  PDE_OPERATOR_MINIO_ENABLED: {{ .Values.operator.minioEnabled | quote }}
+  PDE_OPERATOR_MINIO_ENDPOINT: {{ include "pde-operator.minioEndpoint" . | quote }}
+  PDE_OPERATOR_MINIO_BUCKET: {{ include "pde-operator.minioBucket" . | quote }}
+  PDE_OPERATOR_MINIO_REGION: {{ .Values.operator.minioRegion | quote }}
+  PDE_OPERATOR_EXTERNAL_SECRETS_NAME: {{ include "pde-operator.externalSecretsName" . | quote }}
+  PDE_OPERATOR_EXTERNAL_SECRETS_MOUNT_PATH: {{ .Values.externalSecrets.mountPath | quote }}
+  PDE_OPERATOR_JOB_RUNTIME_CONFIGMAP_NAME: {{ include "pde-operator.jobRuntimeConfigMapName" . | quote }}
+  PDE_OPERATOR_JOB_RUNTIME_MOUNT_PATH: {{ .Values.jobRuntime.mountPath | quote }}

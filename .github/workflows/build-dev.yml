@@ -1,0 +1,83 @@
+name: Build Dev Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      custom_dev_tag:
+        description: "Tag for dev images"
+        required: true
+        default: dev
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-ui:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build React bundle
+        working-directory: argocd_extension/ui
+        run: |
+          npm install
+          npm run build
+
+      - name: Upload UI bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-dist
+          path: argocd_extension/ui/dist
+
+  build-images:
+    needs: [build-ui]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: pde-operator
+            image: pde-operator
+            dockerfile: ./pde_operator/Dockerfile
+            context: .
+            needs-ui: true
+          - name: pde-argo-extension-backend
+            image: pde-argo-extension-backend
+            dockerfile: ./argocd_extension/backend/Dockerfile
+            context: ./argocd_extension/backend
+            needs-ui: false
+          - name: pde-argo-extension-ui
+            image: pde-argo-extension-ui
+            dockerfile: ./argocd_extension/ui/Dockerfile
+            context: ./argocd_extension/ui
+            needs-ui: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build and publish image
+        uses: netcracker/qubership-workflow-hub/actions/docker-action@v2.7.0
+        with:
+          checkout: false
+          download-artifact: ${{ matrix.needs-ui }}
+          download-artifact-name: ui-dist
+          download-artifact-path: argocd_extension/ui/dist
+          custom-image-name: ${{ matrix.image }}
+          component: '[{"name":"${{ matrix.name }}","dockerfile":"${{ matrix.dockerfile }}","build_context":"${{ matrix.context }}"}]'
+          platforms: linux/amd64
+          tags: ${{ inputs.custom_dev_tag }}
+          dry-run: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
