@@ -1,6 +1,6 @@
 [project]
 name = "qubership-pde-operator"
-version = "0.0.1"
+version = "0.0.2"
 description = "Kubernetes control plane for PDE pipeline runs"
 readme = "README.md"
 requires-python = ">=3.13"
