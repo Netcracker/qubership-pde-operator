@@ -45,6 +45,7 @@ class RunSummary(BaseModel):
     name: str | None
     k8s_job_name: str | None
     execution_url: str | None
+    triggered_by: str | None = None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
@@ -54,7 +55,6 @@ class RunDetail(RunSummary):
     pipeline_vars: str | None
     pipeline_vars_secure: str | None
     retry_vars: str | None
-    triggered_by: str | None
     progress_json: dict | None
     status_updated_at: datetime | None
     report_updated_at: datetime | None

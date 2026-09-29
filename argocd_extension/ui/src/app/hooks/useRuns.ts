@@ -1,7 +1,8 @@
 import { apiJson, apiText, downloadArtifact } from "../../api/client";
 import { errMsg, paginatedQuery } from "../../lib/format";
 import type { UserPreferences } from "../../lib/userPreferences";
-import { emptyCreateForm, emptyRetryForm, ensureKvPairs, kvPairsToRecord, kvPairsToText, normalizePipelineData, parseKvPairs } from "../../lib/runs";
+import { createFormToPayload, emptyCreateForm, emptyRetryForm, ensureKvPairs, kvPairsToText, parseKvPairs } from "../../lib/runs";
+import { scheduleTriggerRef } from "../../lib/schedules";
 import { templateToCreateForm } from "../../lib/templates";
 import type { CreateForm, LogStatus, ReportStatus, RetryForm } from "../../lib/types";
 import type { AppMessages } from "./useAppMessages";
@@ -12,6 +13,7 @@ type UseRunsArgs = {
   createMode: string;
   runId: string;
   templateId: string;
+  scheduleId: string;
   detailSubview: string;
   go: GoFn;
   messages: AppMessages;
@@ -26,7 +28,7 @@ function shouldReloadArtifact(status: LogStatus, updatedAt: string | null, lastL
   return true;
 }
 
-export function useRuns({ tab, createMode, runId, templateId, detailSubview, go, messages, preferences }: UseRunsArgs) {
+export function useRuns({ tab, createMode, runId, templateId, scheduleId, detailSubview, go, messages, preferences }: UseRunsArgs) {
   const { setError, setFlash } = messages;
   const [runs, setRuns] = React.useState<any[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -34,7 +36,9 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
   const [searchQuery, setSearchQuery] = React.useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("");
   const [templateName, setTemplateName] = React.useState("");
+  const [scheduleName, setScheduleName] = React.useState("");
   const lastTemplateFilterIdRef = React.useRef("");
+  const lastScheduleFilterIdRef = React.useRef("");
   const [listLoading, setListLoading] = React.useState(false);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [detail, setDetail] = React.useState<any>(null);
@@ -87,6 +91,7 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
   }, [searchQuery]);
 
   const templateFilterId = tab === "list" ? templateId || "" : "";
+  const scheduleFilterId = tab === "list" ? scheduleId || "" : "";
   const effectivePage = page;
 
   const loadRuns = React.useCallback(
@@ -96,6 +101,7 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
         const params = paginatedQuery(effectivePage);
         if (debouncedSearchQuery.trim()) params.set("q", debouncedSearchQuery.trim());
         if (templateFilterId) params.set("created_from_template_id", templateFilterId);
+        if (scheduleFilterId) params.set("triggered_by", scheduleTriggerRef(scheduleFilterId));
         const data = (await apiJson(`/runs?${params}`)) as any;
         setRuns(data.items || []);
         setTotal(data.total || 0);
@@ -106,12 +112,17 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
         if (!quiet) setListLoading(false);
       }
     },
-    [debouncedSearchQuery, effectivePage, setError, templateFilterId],
+    [debouncedSearchQuery, effectivePage, scheduleFilterId, setError, templateFilterId],
   );
 
   const clearTemplateFilter = React.useCallback(() => {
     setPage(0);
     go({ tab: "list", templateId: "" });
+  }, [go]);
+
+  const clearScheduleFilter = React.useCallback(() => {
+    setPage(0);
+    go({ tab: "list", scheduleId: "" });
   }, [go]);
 
   const loadDetail = React.useCallback(
@@ -332,14 +343,7 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
           await apiJson("/runs", {
             method: "POST",
             body: JSON.stringify({
-              profile_id: form.profile_id || "default",
-              pipeline_data: normalizePipelineData(form.pipeline_data),
-              pipeline_vars: kvPairsToText(form.pipeline_vars),
-              pipeline_vars_secure: kvPairsToText(form.pipeline_vars_secure),
-              is_dry_run: form.is_dry_run,
-              log_level: form.log_level,
-              env_vars: kvPairsToRecord(form.env_vars),
-              pde_image: form.pde_image.trim() || null,
+              ...createFormToPayload(form),
               created_from_template_id: activeTemplateId || templateId || null,
             }),
           });
@@ -379,34 +383,34 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
       lastTemplateFilterIdRef.current = templateFilterId;
       setPage(0);
     }
-  }, [tab, templateFilterId]);
+    if (lastScheduleFilterIdRef.current !== scheduleFilterId) {
+      lastScheduleFilterIdRef.current = scheduleFilterId;
+      setPage(0);
+    }
+  }, [tab, templateFilterId, scheduleFilterId]);
 
+  // List filters are labelled with the template/schedule name; fall back to the id when it is gone.
   React.useEffect(() => {
-    if (tab !== "list") {
-      setTemplateName("");
-      return;
-    }
-    if (!templateId) {
-      setTemplateName("");
-      return;
-    }
+    if (tab !== "list" || !templateId) setTemplateName("");
+    if (tab !== "list" || !scheduleId) setScheduleName("");
+    if (tab !== "list") return;
 
     let cancelled = false;
-    void (async () => {
+    const resolveName = async (url: string, id: string, setName: (value: string) => void) => {
       try {
-        const tpl = await apiJson(`/run-templates/${templateId}`) as any;
-        if (cancelled) return;
-        setTemplateName(tpl?.name || String(templateId));
+        const entity = (await apiJson(url)) as any;
+        if (!cancelled) setName(entity?.name || id);
       } catch {
-        if (cancelled) return;
-        setTemplateName(String(templateId));
+        if (!cancelled) setName(id);
       }
-    })();
+    };
+    if (templateId) void resolveName(`/run-templates/${templateId}`, templateId, setTemplateName);
+    if (scheduleId) void resolveName(`/schedules/${scheduleId}`, scheduleId, setScheduleName);
 
     return () => {
       cancelled = true;
     };
-  }, [tab, templateId]);
+  }, [tab, templateId, scheduleId]);
 
   React.useEffect(() => {
     if (tab === "detail" && runId) loadDetail(runId);
@@ -504,6 +508,8 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
     searchQuery,
     templateFilter: templateFilterId,
     templateName,
+    scheduleFilter: scheduleFilterId,
+    scheduleName,
     listLoading,
     detailLoading,
     detail,
@@ -525,6 +531,7 @@ export function useRuns({ tab, createMode, runId, templateId, detailSubview, go,
     setPage,
     setSearchQuery,
     clearTemplateFilter,
+    clearScheduleFilter,
     setForm,
     setRetryForm,
     resetDetail,

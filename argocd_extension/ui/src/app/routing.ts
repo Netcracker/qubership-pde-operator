@@ -1,5 +1,5 @@
 import { getHost } from "../host/registry";
-import type { CatalogSubview, CreateMode, DetailSubview, ProfileSubview, Tab } from "../lib/types";
+import type { CatalogSubview, CreateMode, DetailSubview, ProfileSubview, ScheduleSubview, Tab } from "../lib/types";
 
 export type RouteState = {
   tab: Tab;
@@ -10,6 +10,8 @@ export type RouteState = {
   profileId: string;
   catalogSubview: CatalogSubview;
   catalogId: string;
+  scheduleSubview: ScheduleSubview;
+  scheduleId: string;
   detailSubview: DetailSubview;
 };
 
@@ -38,6 +40,8 @@ function emptyRoute(): RouteState {
     profileId: "",
     catalogSubview: "list",
     catalogId: "",
+    scheduleSubview: "list",
+    scheduleId: "",
     detailSubview: "info",
   };
 }
@@ -57,7 +61,7 @@ export function parseRoute(pathname = appPathname()): RouteState {
     }
     return { ...empty, tab: "catalog", catalogSubview: "list" };
   }
-  if (parts[0] === "runs" && parts[1] && parts[1] !== "template") {
+  if (parts[0] === "runs" && parts[1] && parts[1] !== "template" && parts[1] !== "schedule") {
     const sub = parts[2];
     const detailSubview: DetailSubview = DETAIL_SUBVIEWS.has(sub as DetailSubview) ? (sub as DetailSubview) : "info";
     return { ...empty, tab: "detail", runId: parts[1], detailSubview };
@@ -80,12 +84,27 @@ export function parseRoute(pathname = appPathname()): RouteState {
     }
     return { ...empty, tab: "profiles", profileSubview: "list" };
   }
+  if (parts[0] === "schedules") {
+    if (parts[1] === "new") {
+      if (parts[2] === "from" && parts[3]) {
+        return { ...empty, tab: "schedules", scheduleSubview: "create", templateId: parts[3] };
+      }
+      return { ...empty, tab: "schedules", scheduleSubview: "create" };
+    }
+    if (parts[1] && parts[2] === "edit") {
+      return { ...empty, tab: "schedules", scheduleSubview: "edit", scheduleId: parts[1] };
+    }
+    return { ...empty, tab: "schedules", scheduleSubview: "list" };
+  }
   if (parts[0] === "settings") {
     return { ...empty, tab: "settings" };
   }
   if (parts[0] === "runs") {
     if (parts[1] === "template" && parts[2]) {
       return { ...empty, tab: "list", templateId: parts[2] };
+    }
+    if (parts[1] === "schedule" && parts[2]) {
+      return { ...empty, tab: "list", scheduleId: parts[2] };
     }
     return { ...empty, tab: "list" };
   }
@@ -101,6 +120,8 @@ export function pathFor(state: Partial<RouteState> & Pick<RouteState, "tab">): s
   const profileId = state.profileId || "";
   const catalogSubview = state.catalogSubview || "list";
   const catalogId = state.catalogId || "";
+  const scheduleSubview = state.scheduleSubview || "list";
+  const scheduleId = state.scheduleId || "";
   const detailSubview = state.detailSubview || "info";
 
   switch (state.tab) {
@@ -118,11 +139,19 @@ export function pathFor(state: Partial<RouteState> & Pick<RouteState, "tab">): s
       if (profileSubview === "create") return `${prefix}/profiles/new`;
       if (profileSubview === "edit" && profileId) return `${prefix}/profiles/${profileId}/edit`;
       return `${prefix}/profiles`;
+    case "schedules":
+      if (scheduleSubview === "create") {
+        if (templateId) return `${prefix}/schedules/new/from/${templateId}`;
+        return `${prefix}/schedules/new`;
+      }
+      if (scheduleSubview === "edit" && scheduleId) return `${prefix}/schedules/${scheduleId}/edit`;
+      return `${prefix}/schedules`;
     case "settings":
       return `${prefix}/settings`;
     case "list":
     default:
       if (state.templateId) return `${prefix}/runs/template/${state.templateId}`;
+      if (scheduleId) return `${prefix}/runs/schedule/${scheduleId}`;
       return `${prefix}/runs`;
   }
 }

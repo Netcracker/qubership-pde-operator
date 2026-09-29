@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from pde_operator.schemas.manage import CleanupRequest, CleanupResponse
 from pde_operator.services.config_import_service import ConfigImportService
-from pde_operator.services.profile_service import ProfileValidationError
+from pde_operator.services.profile_service import ProfileNotFoundError, ProfileValidationError
 from pde_operator.services.retention_service import RetentionService
 from pde_operator.utils.depend_utils import DependUtils
 
@@ -31,6 +31,6 @@ async def import_config(
     yaml_text = yaml_bytes.decode("utf-8", errors="replace")
     try:
         await service.import_config_from_yaml(yaml_text=yaml_text, mode=mode)
-    except (ValidationError, ValueError, ProfileValidationError) as exc:
+    except (ValidationError, ValueError, ProfileValidationError, ProfileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return Response(status_code=200)

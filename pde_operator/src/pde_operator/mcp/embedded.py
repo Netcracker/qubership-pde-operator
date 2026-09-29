@@ -16,14 +16,17 @@ from pde_operator.mcp.resources_content import (
     LIFECYCLE_MARKDOWN,
     PIPELINE_INPUTS_MARKDOWN,
     RUN_TEMPLATES_MARKDOWN,
+    SCHEDULES_MARKDOWN,
     URI_LIFECYCLE,
     URI_PIPELINE_INPUTS,
     URI_PROFILES,
     URI_RUN_TEMPLATES,
+    URI_SCHEDULES,
 )
 from pde_operator.schemas.profiles import ProfileListItem
 from pde_operator.schemas.run_templates import CreateRunFromTemplateRequest, RunTemplateDetail, RunTemplateSummary
 from pde_operator.schemas.runs import CreateRunRequest, CreateRunResponse, RetryRunRequest, RunDetail, RunSummary
+from pde_operator.schemas.schedules import ScheduledRunDetail, ScheduledRunSummary
 from pde_operator.services.profile_service import ProfileNotFoundError, ProfileService
 from pde_operator.services.run_service import (
     RunNotCancellableError,
@@ -33,6 +36,7 @@ from pde_operator.services.run_service import (
     RunStateNotAvailableError,
 )
 from pde_operator.services.run_template_service import RunTemplateKindError, RunTemplateNotFoundError, RunTemplateService
+from pde_operator.services.schedule_service import ScheduleService
 from pde_operator.utils.artifact_utils import ArtifactKind, ArtifactNotFoundError, ArtifactsDisabledError
 from pde_operator.utils.auth_utils import AuthUtils
 
@@ -325,6 +329,41 @@ def _build_mcp(app: FastAPI, settings: Settings) -> FastMCP:
             return f"... ({tail_lines} trailing lines)\n" + "\n".join(lines)
         return text
 
+    @mcp.tool()
+    async def pde_list_schedules(
+        q: Annotated[
+            str | None,
+            Field(description="Optional free-text substring search across name and description."),
+        ] = None,
+        enabled: Annotated[bool | None, Field(description="Optional enabled filter.")] = None,
+        offset: Annotated[int, Field(description="Pagination offset (newest-first list).", ge=0)] = 0,
+        limit: Annotated[int, Field(description="Page size (max useful ~100).", ge=1, le=100)] = 20,
+    ) -> str:
+        """List CRON-scheduled runs (newest first) with next/last fire state.
+
+        Use before create/update/delete, and to report what is scheduled. Returns items[], total, offset, limit.
+        """
+        session_factory = app.state.session_factory
+        async with session_factory() as session:
+            service = ScheduleService(session, settings)
+            schedules, total = await service.list_schedules(q=q, enabled=enabled, offset=offset, limit=limit)
+        items = [ScheduledRunSummary.model_validate(schedule).model_dump(mode="json") for schedule in schedules]
+        return _dumps({"items": items, "total": total, "offset": offset, "limit": limit})
+
+    @mcp.tool()
+    async def pde_get_schedule(schedule_id: Annotated[str, Field(description="Schedule UUID.")]) -> str:
+        """Get a scheduled run: cron, timezone, enabled/overlap, next/last fire, and run parameters.
+
+        Secure vars are returned masked as [MASKED]; the real values are never exposed here.
+        """
+        session_factory = app.state.session_factory
+        async with session_factory() as session:
+            service = ScheduleService(session, settings)
+            schedule = await service.get_schedule(UUID(schedule_id))
+        if schedule is None:
+            raise ValueError(f"Schedule '{schedule_id}' not found")
+        return _dumps(ScheduledRunDetail.model_validate(schedule).model_dump(mode="json"))
+
     @mcp.prompt()
     def investigate_run(run_id: str) -> str:
         """Guided workflow to investigate a run's outcome (status, report, log, next actions)."""
@@ -379,6 +418,15 @@ def _build_mcp(app: FastAPI, settings: Settings) -> FastMCP:
     )
     def pde_run_templates_doc() -> str:
         return RUN_TEMPLATES_MARKDOWN
+
+    @mcp.resource(
+        URI_SCHEDULES,
+        name="Scheduled runs",
+        description="Cron format, timezones, firing/overlap semantics and secret handling (static markdown).",
+        mime_type="text/markdown",
+    )
+    def pde_schedules_doc() -> str:
+        return SCHEDULES_MARKDOWN
 
     return mcp
 

@@ -25,6 +25,7 @@ export function CatalogView(props: {
   onRefresh: () => void;
   onOpen: (id: string) => void;
   onHistory: (id: string) => void;
+  onSchedule: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string, name?: string) => void;
   onForm: (form: TemplateForm) => void;
@@ -190,6 +191,11 @@ export function CatalogView(props: {
                       >
                         History
                       </Btn>
+                      {props.adminMode ? (
+                        <Btn small onClick={() => props.onSchedule(t.id)} icon="clock">
+                          Schedule
+                        </Btn>
+                      ) : null}
                       {props.adminMode && t.template_kind !== "declarative" ? (
                         <Btn small onClick={() => props.onEdit(t.id)} icon="pencil-alt">
                           Edit

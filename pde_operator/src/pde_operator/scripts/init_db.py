@@ -11,6 +11,7 @@ from pde_operator.db.models.base import Base
 from pde_operator.db.models.profile import Profile
 from pde_operator.db.models.run import Run  # noqa: F401
 from pde_operator.db.models.run_template import RunTemplate  # noqa: F401
+from pde_operator.db.models.scheduled_run import ScheduledRun  # noqa: F401
 from pde_operator.utils.db_utils import DBUtils
 
 logger = logging.getLogger(__name__)

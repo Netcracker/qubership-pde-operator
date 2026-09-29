@@ -198,6 +198,7 @@ export function TabBar(props: {
     ],
     [
       ...(props.adminMode ? [{ id: "profiles" as Tab, label: "Profiles" }] : []),
+      { id: "schedules", label: "Schedules" },
       { id: "settings", label: "Settings" },
     ],
   ];

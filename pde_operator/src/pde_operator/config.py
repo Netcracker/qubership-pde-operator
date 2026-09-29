@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     retention_days: int = 30
     retention_cron: str = "0 0 * * *"  # daily at 00:00
 
+    schedules_enabled: bool = True
+    schedules_poll_seconds: float = 10.0
+    schedules_missed_grace_seconds: int = 120  # overdue beyond this window is considered a missed fire
+    schedules_min_interval_seconds: int = 60  # cron expressions firing more often than this are rejected
+    schedules_batch_size: int = 20  # due schedules claimed per poll tick
+
     minio_enabled: bool = True
     minio_endpoint: str = "http://localhost:9000"
     minio_access_key: str = "pde"

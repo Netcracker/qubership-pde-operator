@@ -18,10 +18,11 @@ from pde_operator.services.artifacts_service import ArtifactsService
 from pde_operator.declarative_templates.services.run_adapter import DeclarativeRunAdapter
 from pde_operator.services.job_service import JobCreationError, JobService, JobSignalError
 from pde_operator.services.profile_service import DEFAULT_PROFILE_ID, ProfileNotFoundError
+from pde_operator.services.run_input_storage import RunInputStorage
 from pde_operator.services.run_template_service import RunTemplateKindError, RunTemplateNotFoundError
 from pde_operator.utils.artifact_utils import ArtifactKind, ArtifactNotFoundError
 from pde_operator.utils.finish_utils import FinishUtils
-from pde_operator.utils.input_crypto_utils import InputCryptoError, InputCryptoUtils
+from pde_operator.utils.input_crypto_utils import InputCryptoUtils
 
 logger = logging.getLogger(__name__)
 
@@ -33,28 +34,21 @@ class RunService:
             settings: Settings,
             job_service: JobService | None = None,
             artifacts_service: ArtifactsService | None = None,
+            run_input_storage: RunInputStorage | None = None,
     ) -> None:
         self._session = session
         self._settings = settings
         self._job_service = job_service or JobService(settings)
         self._artifacts = artifacts_service or ArtifactsService(settings)
+        self._run_input_storage = run_input_storage or RunInputStorage(settings, artifacts_service=self._artifacts)
 
-    async def create_run(self, request: CreateRunRequest) -> Run:
+    async def create_run(self, request: CreateRunRequest, *, triggered_by: str | None = None) -> Run:
         profile = await self._session.get(Profile, request.profile_id)
         if profile is None:
             raise ProfileNotFoundError(request.profile_id)
 
         run_id = uuid4()
-        await self._store_run_input(
-            run_id,
-            RunInputPayload(
-                pipeline_data=request.pipeline_data,
-                pipeline_vars=request.pipeline_vars,
-                pipeline_vars_secure=request.pipeline_vars_secure,
-                is_dry_run=request.is_dry_run,
-                log_level=request.log_level,
-            ),
-        )
+        await self._store_run_input(run_id, RunInputPayload.from_create_request(request))
 
         run = Run(
             id=run_id,
@@ -68,6 +62,7 @@ class RunService:
             log_level=request.log_level,
             env_vars=request.env_vars,
             created_from_template_id=request.created_from_template_id,
+            triggered_by=triggered_by,
             execution_url=self._execution_url(run_id),
         )
         self._session.add(run)
@@ -136,6 +131,7 @@ class RunService:
             status: str | None = None,
             profile_id: str | None = None,
             created_from_template_id: UUID | None = None,
+            triggered_by: str | None = None,
             created_after: datetime | None = None,
             created_before: datetime | None = None,
             offset: int = 0,
@@ -146,6 +142,7 @@ class RunService:
             status=status,
             profile_id=profile_id,
             created_from_template_id=created_from_template_id,
+            triggered_by=triggered_by,
             created_after=created_after,
             created_before=created_before,
         )
@@ -337,26 +334,10 @@ class RunService:
         return self._artifacts.get_artifact(run_id, kind)
 
     def get_run_input(self, run_id: UUID) -> RunInputPayload:
-        try:
-            ciphertext = self._artifacts.get_run_input_bytes(run_id)
-        except ArtifactNotFoundError as exc:
-            raise RunInputNotAvailableError("Run input not found in storage") from exc
-        try:
-            plaintext = InputCryptoUtils.decrypt(self._settings.input_encryption_key, ciphertext)
-        except InputCryptoError as exc:
-            raise RunInputNotAvailableError(str(exc)) from exc
-        return RunInputPayload.model_validate_json(plaintext)
+        return self._run_input_storage.load(run_id)
 
     async def _store_run_input(self, run_id: UUID, payload: RunInputPayload) -> None:
-        plaintext = payload.model_dump_json().encode("utf-8")
-        try:
-            ciphertext = InputCryptoUtils.encrypt(self._settings.input_encryption_key, plaintext)
-        except InputCryptoError as exc:
-            raise RunInputStorageError(str(exc)) from exc
-        try:
-            await asyncio.to_thread(self._artifacts.put_run_input, run_id, ciphertext)
-        except Exception as exc:
-            raise RunInputStorageError(f"Failed to store encrypted run input for '{run_id}': {exc}") from exc
+        await self._run_input_storage.store(run_id, payload)
 
     async def _start_run_job_now(self, run: Run, profile: Profile) -> None:
         if self._settings.queue_enabled or not self._settings.k8s_job_creation_enabled:
@@ -407,6 +388,7 @@ class RunService:
             status: str | None,
             profile_id: str | None,
             created_from_template_id: UUID | None,
+            triggered_by: str | None,
             created_after: datetime | None,
             created_before: datetime | None,
     ) -> Select[tuple[Run]]:
@@ -420,6 +402,8 @@ class RunService:
             query = query.where(Run.profile_id == profile_id)
         if created_from_template_id is not None:
             query = query.where(Run.created_from_template_id == created_from_template_id)
+        if triggered_by is not None:
+            query = query.where(Run.triggered_by == triggered_by)
         if created_after is not None:
             query = query.where(Run.created_at >= created_after)
         if created_before is not None:
@@ -466,16 +450,6 @@ class RunNotRetriableError(ValueError):
 
 
 class RunStateNotAvailableError(LookupError):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-
-
-class RunInputNotAvailableError(LookupError):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-
-
-class RunInputStorageError(RuntimeError):
     def __init__(self, message: str) -> None:
         super().__init__(message)
 

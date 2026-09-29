@@ -7,6 +7,7 @@ type Props = {
   submitting: boolean;
   onSubmit: (values: Record<string, any>) => Promise<void>;
   fetchOptions: (fieldId: string, context: Record<string, any>) => Promise<{ value: string; label: string }[]>;
+  submitLabel?: string;
 };
 
 type EnumOpt = { value: string; label: string };
@@ -312,7 +313,7 @@ export function DeclarativeRunTemplateFormView(props: Props) {
       <div className="pde-decl-fields">{fields.map((f) => renderField(f))}</div>
 
       <Btn primary type="submit" disabled={submitting}>
-        {submitting ? "Starting..." : "Start run"}
+        {submitting ? `${props.submitLabel || "Starting"}...` : props.submitLabel || "Start run"}
       </Btn>
     </form>
   );
