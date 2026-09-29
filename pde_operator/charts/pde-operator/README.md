@@ -20,6 +20,7 @@ When `dbInit.enabled` (default), an init container runs `pde-operator-init-db` b
 | `dbInit.enabled`                            | `true`                          | Schema init container                                                        |
 | `postgres.enabled`                          | `true`                          | In-chart Postgres                                                            |
 | `minio.enabled`                             | `true`                          | In-chart MinIO + bucket Job                                                  |
+| `operator.schedulesEnabled`                 | `true`                          | In-process runner that fires CRON scheduled runs                             |
 | `image.*`                                   | `pde-operator`                  | Container image                                                              |
 | `auth.apiAdminToken` / `jobTokenSigningKey` | empty -> generate               | Stable if set explicitly                                                     |
 | `auth.inputEncryptionKey`                   | empty -> generate               | Any secret string; operator derives Fernet key (lookup on upgrade)           |

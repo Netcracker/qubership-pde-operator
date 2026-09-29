@@ -1,5 +1,6 @@
 import { fmt, fmtDuration, pageRange, shortId } from "../../lib/format";
 import { canCancel, canRetry } from "../../lib/runs";
+import { isScheduledRun } from "../../lib/schedules";
 import { Badge, Btn, Field, Pager } from "../ui";
 
 export function ListView(props: {
@@ -9,10 +10,13 @@ export function ListView(props: {
   searchQuery: string;
   templateFilter: string;
   templateName?: string;
+  scheduleFilter?: string;
+  scheduleName?: string;
   loading: boolean;
   canWrite?: boolean;
   onSearch: (v: string) => void;
   onClearTemplate: () => void;
+  onClearSchedule: () => void;
   onPage: (page: number) => void;
   onRefresh: () => void;
   onOpen: (id: string) => void;
@@ -20,8 +24,13 @@ export function ListView(props: {
   onRetry: (id: string) => void;
 }) {
   const { runs, total, page, searchQuery, templateFilter, templateName, loading, canWrite = true } = props;
+  const { scheduleFilter, scheduleName } = props;
   const pager = pageRange(total, page);
-  const title = templateFilter ? `History for "${templateName || templateFilter}"` : "Pipeline Runs";
+  const title = templateFilter
+    ? `History for "${templateName || templateFilter}"`
+    : scheduleFilter
+      ? `History for schedule "${scheduleName || scheduleFilter}"`
+      : "Pipeline Runs";
 
   return (
     <section>
@@ -30,6 +39,11 @@ export function ListView(props: {
         <div className="pde-toolbar-right">
           {templateFilter ? (
             <Btn onClick={props.onClearTemplate} icon="times">
+              Clear
+            </Btn>
+          ) : null}
+          {scheduleFilter ? (
+            <Btn onClick={props.onClearSchedule} icon="times">
               Clear
             </Btn>
           ) : null}
@@ -73,6 +87,11 @@ export function ListView(props: {
                 <tr key={String(run.id)} className="pde-clickable" onClick={() => props.onOpen(String(run.id))}>
                   <td>
                     <Badge status={run.status} />
+                    {isScheduledRun(run.triggered_by) ? (
+                      <span className="pde-tag" title={String(run.triggered_by)}>
+                        scheduled
+                      </span>
+                    ) : null}
                   </td>
                   <td className="pde-mono">{shortId(run.id)}</td>
                   <td>{run.profile_id || "—"}</td>

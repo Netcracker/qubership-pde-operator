@@ -5,7 +5,9 @@
   "scripts": {
     "build": "npm run build:extension && npm run build:standalone",
     "build:extension": "webpack --config webpack.extension.cjs --mode production",
-    "build:standalone": "webpack --config webpack.standalone.cjs --mode production"
+    "build:standalone": "webpack --config webpack.standalone.cjs --mode production",
+    "preview": "npm run build:standalone && node scripts/preview-server.cjs",
+    "preview:serve": "node scripts/preview-server.cjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.6.0"

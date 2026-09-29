@@ -1,5 +1,5 @@
 import { ensureCanonicalDetailPath, initialRoute, navigate, onRouteChange, parseRoute, pathFor, type RouteState } from "../routing";
-import type { CatalogSubview, CreateMode, DetailSubview, ProfileSubview, Tab } from "../../lib/types";
+import type { CatalogSubview, CreateMode, DetailSubview, ProfileSubview, ScheduleSubview, Tab } from "../../lib/types";
 
 export type RouteSideEffects = {
   onCreateRoute: () => void;
@@ -7,6 +7,8 @@ export type RouteSideEffects = {
   onCatalogEditRoute: (catalogId: string) => void;
   onProfilesCreateRoute: () => void;
   onProfilesEditRoute: (profileId: string) => void;
+  onSchedulesCreateRoute: (templateId: string) => void;
+  onSchedulesEditRoute: (scheduleId: string) => void;
   onRetryRoute: (runId: string) => void;
   onSettingsRoute: () => void;
 };
@@ -21,6 +23,8 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
   const [templateId, setTemplateId] = React.useState(initial.templateId);
   const [profileSubview, setProfileSubview] = React.useState<ProfileSubview>(initial.profileSubview);
   const [catalogSubview, setCatalogSubview] = React.useState<CatalogSubview>(initial.catalogSubview);
+  const [scheduleSubview, setScheduleSubview] = React.useState<ScheduleSubview>(initial.scheduleSubview);
+  const [scheduleId, setScheduleId] = React.useState(initial.scheduleId);
   const [detailSubview, setDetailSubview] = React.useState<DetailSubview>(initial.detailSubview);
 
   const go = React.useCallback<GoFn>((next, { replace = false } = {}) => {
@@ -33,6 +37,8 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
       profileId: next.profileId ?? "",
       catalogSubview: next.catalogSubview ?? "list",
       catalogId: next.catalogId ?? "",
+      scheduleSubview: next.scheduleSubview ?? "list",
+      scheduleId: next.scheduleId ?? "",
       detailSubview: next.detailSubview ?? "info",
     };
     navigate(pathFor(route), { replace });
@@ -42,6 +48,8 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
     setTemplateId(route.templateId);
     setProfileSubview(route.profileSubview);
     setCatalogSubview(route.catalogSubview);
+    setScheduleSubview(route.scheduleSubview);
+    setScheduleId(route.scheduleId);
     setDetailSubview(route.detailSubview);
   }, []);
 
@@ -54,6 +62,8 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
     setTemplateId(route.templateId);
     setProfileSubview(route.profileSubview);
     setCatalogSubview(route.catalogSubview);
+    setScheduleSubview(route.scheduleSubview);
+    setScheduleId(route.scheduleId);
     setDetailSubview(route.detailSubview);
     const effects = effectsRef.current;
     if (route.tab === "create" && route.createMode === "create" && !route.templateId) {
@@ -66,6 +76,12 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
     if (route.tab === "profiles" && route.profileSubview === "create") effects.onProfilesCreateRoute();
     if (route.tab === "profiles" && route.profileSubview === "edit" && route.profileId) {
       effects.onProfilesEditRoute(route.profileId);
+    }
+    if (route.tab === "schedules" && route.scheduleSubview === "create") {
+      effects.onSchedulesCreateRoute(route.templateId);
+    }
+    if (route.tab === "schedules" && route.scheduleSubview === "edit" && route.scheduleId) {
+      effects.onSchedulesEditRoute(route.scheduleId);
     }
     if (route.tab === "create" && route.createMode === "retry" && route.runId) effects.onRetryRoute(route.runId);
     if (route.tab === "settings") effects.onSettingsRoute();
@@ -88,6 +104,12 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
     if (initial.tab === "profiles" && initial.profileSubview === "edit" && initial.profileId) {
       effects.onProfilesEditRoute(initial.profileId);
     }
+    if (initial.tab === "schedules" && initial.scheduleSubview === "create") {
+      effects.onSchedulesCreateRoute(initial.templateId);
+    }
+    if (initial.tab === "schedules" && initial.scheduleSubview === "edit" && initial.scheduleId) {
+      effects.onSchedulesEditRoute(initial.scheduleId);
+    }
     if (initial.tab === "create" && initial.createMode === "retry" && initial.runId) {
       effects.onRetryRoute(initial.runId);
     }
@@ -103,6 +125,8 @@ export function useAppRouting(effectsRef: { current: RouteSideEffects }) {
     templateId,
     profileSubview,
     catalogSubview,
+    scheduleSubview,
+    scheduleId,
     detailSubview,
     setProfileSubview,
     setCatalogSubview,

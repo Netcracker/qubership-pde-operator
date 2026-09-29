@@ -24,6 +24,7 @@ from kubernetes.stream import stream
 from pde_operator.config import Settings
 from pde_operator.db.models.profile import Profile
 from pde_operator.db.models.run import Run
+from pde_operator.db.models.scheduled_run import schedule_id_from_trigger
 from pde_operator.utils.auth_utils import AuthUtils
 from pde_operator.utils.env_utils import EnvUtils
 from pde_operator.utils.finish_utils import FinishUtils
@@ -199,18 +200,23 @@ class JobService:
             volumes=volumes,
         )
 
+        labels = {
+            "app.kubernetes.io/part-of": "pde-operator",
+            "app.kubernetes.io/name": "pde-run",
+            "pde.run/id": run_id,
+            "pde.run/profile": run.profile_id,
+        }
+        schedule_id = schedule_id_from_trigger(run.triggered_by)
+        if schedule_id is not None:
+            labels["pde.schedule/id"] = str(schedule_id)
+
         return V1Job(
             api_version="batch/v1",
             kind="Job",
             metadata=V1ObjectMeta(
                 name=job_name,
                 namespace=self._settings.k8s_namespace,
-                labels={
-                    "app.kubernetes.io/part-of": "pde-operator",
-                    "app.kubernetes.io/name": "pde-run",
-                    "pde.run/id": run_id,
-                    "pde.run/profile": run.profile_id,
-                },
+                labels=labels,
             ),
             spec=V1JobSpec(
                 backoff_limit=0,

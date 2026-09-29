@@ -53,6 +53,9 @@ operator:
   retentionEnabled: true
   retentionDays: 30
   retentionCron: "0 0 * * *"
+  schedulesEnabled: true
+  schedulesPollSeconds: 10
+  schedulesMissedGraceSeconds: 120
   jobTokenTtlSeconds: 172800
   jobResources:  # Default spawned PDE Run Job resources
     requests:
@@ -101,8 +104,7 @@ postgres:
 
 minio:
   enabled: true
-  image: docker.io/minio/minio:latest
-  mcImage: docker.io/minio/mc:latest
+  image: ghcr.io/netcracker/qubership-minio:RELEASE.2026-06-26T06-18-36Z
   apiPort: 9000
   consolePort: 9001
   persistence:

@@ -36,7 +36,10 @@ Secrets are split by scope — nothing sensitive should live in Postgres, Job Po
 
 ## MCP
 
-Streamable HTTP at `/api/v1/mcp/` (same admin Bearer). Tools: list/get/create/cancel/retry runs, get log. Resources: `pde://lifecycle`, `pde://pipeline-inputs`, `pde://profiles`. Prompt: `investigate_run`.
+Streamable HTTP at `/api/v1/mcp/` (same admin Bearer). Tools: list/get/create/cancel/retry runs, get log,
+schedule list/get (schedules are read-only over MCP; change them via the API or Dev UI).
+Resources: `pde://lifecycle`, `pde://pipeline-inputs`, `pde://profiles`, `pde://run-templates`, `pde://schedules`.
+Prompt: `investigate_run`.
 
 ## Metrics
 

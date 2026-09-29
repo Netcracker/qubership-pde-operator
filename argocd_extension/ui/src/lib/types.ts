@@ -1,7 +1,8 @@
-export type Tab = "catalog" | "list" | "detail" | "create" | "profiles" | "settings";
+export type Tab = "catalog" | "list" | "detail" | "create" | "profiles" | "schedules" | "settings";
 export type CreateMode = "create" | "retry";
 export type ProfileSubview = "list" | "create" | "edit";
 export type CatalogSubview = "list" | "create" | "edit";
+export type ScheduleSubview = "list" | "create" | "edit";
 export type DetailSubview = "info" | "logs" | "viewer";
 export type LogStatus = "idle" | "loading" | "ready" | "not_ready" | "error";
 export type ReportStatus = LogStatus;
@@ -29,6 +30,18 @@ export type TemplateForm = CreateForm & {
 export type RetryForm = {
   retry_vars: KeyValuePair[];
   pde_image: string;
+};
+
+export type ScheduleForm = {
+  id: string; // set after load for edit; server-generated on create
+  name: string;
+  description: string;
+  cronExpression: string;
+  timezone: string;
+  enabled: boolean;
+  overlapPolicy: string;
+  templateId: string; // set when started from a catalog template
+  run: CreateForm;
 };
 
 export type ProfileForm = {

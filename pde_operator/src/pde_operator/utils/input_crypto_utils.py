@@ -61,6 +61,38 @@ class InputCryptoUtils:
         return "\n".join(masked_lines)
 
     @staticmethod
+    def merge_masked_secure(submitted: str | None, existing_real: str | None) -> str | None:
+        """Resolve submitted `KEY=value` lines against the stored real values.
+
+        A value equal to MASKED_VALUE means "unchanged": the stored secret for that key is kept.
+        Anything else replaces it, and a key missing from the submission is dropped.
+        """
+        if not submitted or not submitted.strip():
+            return None
+
+        existing: dict[str, str] = {}
+        for line in (existing_real or "").splitlines():
+            if "=" in line:
+                key, _sep, value = line.partition("=")
+                existing[key] = value
+
+        merged_lines: list[str] = []
+        for line in submitted.splitlines():
+            if not line.strip():
+                continue
+            if "=" not in line:
+                merged_lines.append(line)
+                continue
+            key, _sep, value = line.partition("=")
+            if value != MASKED_VALUE:
+                merged_lines.append(f"{key}={value}")
+                continue
+            if key not in existing:
+                raise InputCryptoError(f"Cannot keep masked value for unknown secure key '{key}'")
+            merged_lines.append(f"{key}={existing[key]}")
+        return "\n".join(merged_lines) if merged_lines else None
+
+    @staticmethod
     def _fernet(secret: str) -> Fernet:
         cleaned = secret.strip()
         if not cleaned:

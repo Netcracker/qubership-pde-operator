@@ -15,6 +15,7 @@ from pde_operator.services.profile_service import ProfileService
 from pde_operator.services.retention_service import RetentionService
 from pde_operator.services.run_service import RunService
 from pde_operator.services.run_template_service import RunTemplateService
+from pde_operator.services.schedule_service import ScheduleService
 from pde_operator.utils.auth_utils import AuthUtils
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -90,10 +91,18 @@ class DependUtils:
             yield DeclarativeOptionsService(session)
 
     @staticmethod
+    async def get_schedule_service(request: Request) -> AsyncIterator[ScheduleService]:
+        session_factory = request.app.state.session_factory
+        settings: Settings = request.app.state.settings
+        async with session_factory() as session:
+            yield ScheduleService(session, settings)
+
+    @staticmethod
     async def get_config_import_service(request: Request) -> AsyncIterator[ConfigImportService]:
         session_factory = request.app.state.session_factory
+        settings: Settings = request.app.state.settings
         async with session_factory() as session:
-            yield ConfigImportService(session)
+            yield ConfigImportService(session, settings)
 
     @staticmethod
     def get_retention_service(request: Request) -> RetentionService:

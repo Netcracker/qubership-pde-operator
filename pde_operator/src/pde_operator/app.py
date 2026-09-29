@@ -11,6 +11,7 @@ from pde_operator.mcp.embedded import mount_embedded_mcp
 from pde_operator.services.job_reconciler import JobReconciler
 from pde_operator.services.queue_service import QueueService
 from pde_operator.services.retention_service import RetentionService
+from pde_operator.services.schedule_dispatcher import ScheduleDispatcher
 from pde_operator.ui import mount_ui
 from pde_operator.utils.auth_utils import AuthUtils
 from pde_operator.utils.input_crypto_utils import InputCryptoUtils
@@ -41,6 +42,9 @@ async def lifespan(app: FastAPI):
         if settings.retention_enabled:
             retention = RetentionService(settings, app.state.session_factory)
             background_tasks.append(asyncio.create_task(retention.run(stop_event), name="retention-cleanup"))
+        if settings.schedules_enabled:
+            dispatcher = ScheduleDispatcher(settings, app.state.session_factory)
+            background_tasks.append(asyncio.create_task(dispatcher.run(stop_event), name="scheduled-runs"))
 
         try:
             yield

@@ -1,6 +1,6 @@
 import { PLACEHOLDER_KV_KEY, PLACEHOLDER_KV_VALUE } from "../../lib/constants";
-import { apiJson } from "../../api/client";
 import type { CreateForm, CreateMode, RetryForm } from "../../lib/types";
+import { fetchDeclarativeOptions } from "../../lib/templates";
 import { RunSettingsFields } from "./CatalogView";
 import { Btn, Field, FieldBlock, KeyValueEditor } from "../ui";
 import { DeclarativeRunTemplateFormView } from "./DeclarativeRunTemplateFormView";
@@ -65,14 +65,7 @@ export function CreateView(props: {
               contract={declarativeContract}
               submitting={submitting}
               onSubmit={(values) => props.onSubmit(values)}
-              fetchOptions={async (fieldId, context) => {
-                if (!templateId) return [];
-                const data = await apiJson(`/run-templates/${templateId}/declarative/options`, {
-                  method: "POST",
-                  body: JSON.stringify({ fieldId, context }),
-                });
-                return (data.options || []).map((o: any) => ({ value: o.value, label: o.label }));
-              }}
+              fetchOptions={(fieldId, context) => fetchDeclarativeOptions(templateId || "", fieldId, context)}
             />
           ) : (
             <form

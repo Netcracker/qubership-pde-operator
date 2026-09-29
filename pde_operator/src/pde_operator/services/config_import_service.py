@@ -9,22 +9,32 @@ import yaml
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pde_operator.config import Settings
 from pde_operator.db.models.profile import Profile
 from pde_operator.db.models.run_template import RunTemplate
+from pde_operator.db.models.scheduled_run import ScheduledRun
 from pde_operator.declarative_templates.contract.models import DeclarativeRunTemplate
 from pde_operator.declarative_templates.contract.parser import DeclarativeTemplateParser, GitLabCiLoader
 from pde_operator.schemas.profiles import CreateProfileRequest
 from pde_operator.schemas.run_templates import CreateSimpleRunTemplateRequest, normalize_tags
+from pde_operator.schemas.schedules import (
+    CreateScheduledRunRequest,
+    ImportScheduledRunRequest,
+    UpdateScheduledRunRequest,
+)
 from pde_operator.services.profile_service import DEFAULT_PROFILE_ID, ProfileService
+from pde_operator.services.schedule_service import ScheduleService
 
 logger = logging.getLogger(__name__)
 
-KNOWN_KINDS = frozenset({"Profile", "SimpleRunTemplate", "DeclarativeRunTemplate"})
+KNOWN_KINDS = frozenset({"Profile", "SimpleRunTemplate", "DeclarativeRunTemplate", "ScheduledRun"})
 
 
 class ConfigImportService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, settings: Settings) -> None:
         self._session = session
+        self._settings = settings
+        self._schedules = ScheduleService(session, settings)
 
     async def import_config_from_yaml(self, *, yaml_text: str, mode: Literal["merge", "replace"]) -> None:
         try:
@@ -35,6 +45,7 @@ class ConfigImportService:
         profiles: list[CreateProfileRequest] = []
         simple_templates: list[CreateSimpleRunTemplateRequest] = []
         declarative_templates: list[DeclarativeRunTemplate] = []
+        scheduled_runs: list[ImportScheduledRunRequest] = []
 
         for index, doc in enumerate(docs):
             if doc is None:
@@ -62,12 +73,15 @@ class ConfigImportService:
                 profiles.append(CreateProfileRequest.model_validate(payload))
             elif kind == "SimpleRunTemplate":
                 simple_templates.append(CreateSimpleRunTemplateRequest.model_validate(payload))
+            elif kind == "ScheduledRun":
+                scheduled_runs.append(ImportScheduledRunRequest.model_validate(payload))
             else:
                 logger.warning("Config import: skipping document %s (kind DeclarativeRunTemplate without .ui-variables)", index)
 
         if mode == "replace":
             await self._session.execute(delete(Profile).where(Profile.id != DEFAULT_PROFILE_ID))
             await self._session.execute(delete(RunTemplate))
+            await self._schedules.delete_all_schedules()
 
         for request in profiles:
             ProfileService.validate_profile_id(request.id)
@@ -80,7 +94,17 @@ class ConfigImportService:
         for contract in declarative_templates:
             self._session.add(self._build_declarative_template(contract, now=now))
 
+        for request in scheduled_runs:
+            await self._upsert_schedule(request)
+
         await self._session.commit()
+
+    async def _upsert_schedule(self, request: ImportScheduledRunRequest) -> None:
+        fields = request.model_dump(exclude={"id"})
+        if request.id is not None and await self._session.get(ScheduledRun, request.id) is not None:
+            await self._schedules.update_schedule(request.id, UpdateScheduledRunRequest(**fields))
+            return
+        await self._schedules.create_schedule(CreateScheduledRunRequest(**fields), schedule_id=request.id)
 
     async def _upsert_profile(self, request: CreateProfileRequest) -> None:
         if existing := await self._session.get(Profile, request.id):
