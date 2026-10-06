@@ -46,6 +46,19 @@ export function kvPairsToText(pairs: KeyValuePair[] | null | undefined): string 
   return lines.length ? lines.join("\n") : null;
 }
 
+export function createFormToPayload(form: CreateForm) {
+  return {
+    profile_id: form.profile_id || "default",
+    pipeline_data: normalizePipelineData(form.pipeline_data),
+    pipeline_vars: kvPairsToText(form.pipeline_vars),
+    pipeline_vars_secure: kvPairsToText(form.pipeline_vars_secure),
+    is_dry_run: form.is_dry_run,
+    log_level: form.log_level,
+    env_vars: kvPairsToRecord(form.env_vars),
+    pde_image: form.pde_image.trim() || null,
+  };
+}
+
 export function kvPairsToRecord(pairs: KeyValuePair[] | null | undefined): Record<string, string> | null {
   if (!pairs?.length) return null;
   const result: Record<string, string> = {};

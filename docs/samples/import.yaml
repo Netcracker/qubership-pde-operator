@@ -49,3 +49,19 @@ pipeline_vars: |
   SLEEP_TIME=10
   SLEEP_DURATION=2
   PIPELINE_DATA_DIR=https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/debug_logs/
+---
+apiVersion: v1
+kind: ScheduledRun
+id: 6d2f8a41-0b7c-4e19-9c3a-5a1d7e2b4f06
+name: Nightly Dev Deploy
+description: Deploys the dev environment every night at 02:30 Berlin time.
+cron_expression: "30 2 * * *"
+timezone: Europe/Berlin
+enabled: true
+overlap_policy: allow # skip | allow
+profile_id: default
+pipeline_data: https://gitlab.com/quber-test/quber-pipeline/-/blob/main/pipeline_configs/samples/deploy.yaml
+pipeline_vars: |
+  ENV_NAME=cloud-env-01
+pipeline_vars_secure: |
+  API_TOKEN=replace-me

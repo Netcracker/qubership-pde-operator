@@ -2,33 +2,10 @@ import type { DetailSubview, LogStatus, ReportStatus } from "../../lib/types";
 import { ansiToHtml } from "../../lib/ansi";
 import { fmt, fmtDuration, fmtTemplateRef, parseRunProgress, scrollLogToEnd } from "../../lib/format";
 import { canCancel, canRetry } from "../../lib/runs";
+import { isScheduledRun, scheduleIdFromTrigger } from "../../lib/schedules";
 import { PipelineViewer } from "../pipeline-viewer/PipelineViewer";
+import { DetailMetaCard, MetaItem, MetaSubsection, PipelineDataCard, VarsCard } from "../RunParamsCards";
 import { Badge, Btn, FinishCodeBadge, ProgressBar } from "../ui";
-
-function MetaItem({ label, children, wide }: { label: string; children: any; wide?: boolean }) {
-  return (
-    <div className={wide ? "pde-wide" : undefined}>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-function MetaSubsection({ children }: { children: any }) {
-  return (
-    <div className="pde-detail-subsection">
-      <dl className="pde-meta pde-meta-compact">{children}</dl>
-    </div>
-  );
-}
-
-function DetailMetaCard({ children }: { children: any }) {
-  return (
-    <section className="pde-detail-card">
-      <div className="pde-detail-grid">{children}</div>
-    </section>
-  );
-}
 
 function LogConsole({ text, logStatus }: { text: string; logStatus: LogStatus }) {
   const ref = React.useRef<HTMLPreElement>(null);
@@ -40,14 +17,6 @@ function LogConsole({ text, logStatus }: { text: string; logStatus: LogStatus })
   }, [text, logStatus]);
 
   return <pre ref={ref} className="pde-log" dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-function MetaSection({ children }: { children: any }) {
-  return (
-    <section className="pde-detail-card">
-      <dl className="pde-meta">{children}</dl>
-    </section>
-  );
 }
 
 function ToolbarSep() {
@@ -198,7 +167,7 @@ export function DetailView(props: {
             </MetaSubsection>
 
             <MetaSubsection>
-              <MetaItem label="Dry run">{detail.is_dry_run ? "Yes" : "No"}</MetaItem>
+              <MetaItem label="Dry run">{detail.is_dry_run ? "true" : "false"}</MetaItem>
               <MetaItem label="Log level">{detail.log_level || "—"}</MetaItem>
             </MetaSubsection>
 
@@ -210,6 +179,15 @@ export function DetailView(props: {
                   </NavLink>
                 ) : (
                   "—"
+                )}
+              </MetaItem>
+              <MetaItem label="Triggered by">
+                {isScheduledRun(detail.triggered_by) ? (
+                  <span className="pde-mono pde-wrap" title={String(detail.triggered_by)}>
+                    schedule {scheduleIdFromTrigger(detail.triggered_by)}
+                  </span>
+                ) : (
+                  detail.triggered_by || "—"
                 )}
               </MetaItem>
               <MetaItem label="Retry of">
@@ -224,19 +202,10 @@ export function DetailView(props: {
             </MetaSubsection>
           </DetailMetaCard>
 
-          <MetaSection>
-            <MetaItem label="Pipeline data" wide>
-              <pre className="pde-detail-pre">{detail.pipeline_data || "—"}</pre>
-            </MetaItem>
-            <MetaItem label="Pipeline vars" wide>
-              <pre className="pde-detail-pre">{detail.pipeline_vars || "—"}</pre>
-            </MetaItem>
-            {hasRetryVars ? (
-              <MetaItem label="Retry vars" wide>
-                <pre className="pde-detail-pre">{detail.retry_vars}</pre>
-              </MetaItem>
-            ) : null}
-          </MetaSection>
+          <PipelineDataCard text={detail.pipeline_data} />
+          <VarsCard title="Pipeline vars" text={detail.pipeline_vars} />
+          <VarsCard title="Secure vars" text={detail.pipeline_vars_secure} />
+          {hasRetryVars ? <VarsCard title="Retry vars" text={detail.retry_vars} /> : null}
         </div>
       ) : null}
 

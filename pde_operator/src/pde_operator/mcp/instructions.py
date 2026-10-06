@@ -17,6 +17,7 @@ PDE Operator is a Kubernetes control plane *around* PDE ("PDE as a Service"):
 - Stores console log / state archive / debug zip in MinIO
 - Exposes cancel (SIGINT + grace) and smart-retry (new run from archived state)
 - Catalog of run templates (named/tagged presets) for starting common pipelines
+- Cron-scheduled runs that fire on a cadence in an explicit IANA timezone
 
 Primary consumers are CI workflows calling REST. This MCP is the same admin API surface for agents.
 
@@ -45,12 +46,16 @@ run (retry_of_run_id points at the parent).
 6. Wait: poll pde_get_run until status is terminal; do not spam create
 7. Stop: pde_cancel_run on QUEUED / NOT_STARTED / IN_PROGRESS
 8. Recover: pde_retry_run on FAILED / CANCELLED when state was archived
+9. Schedules are read-only here: read pde://schedules, then pde_list_schedules / pde_get_schedule.
+   Runs they fire carry triggered_by="schedule:<id>"; filter them with pde_list_runs if needed.
+   Creating or changing schedules is done by a human through the Dev UI or the REST API.
 
 ## Resources (read on demand)
 - pde://lifecycle — statuses, cancel/retry rules (markdown)
 - pde://pipeline-inputs — pipeline_data / pipeline_vars formats and examples (markdown)
 - pde://profiles — live list of profile ids and images from this operator (JSON)
 - pde://run-templates — how to find and start from catalog templates (markdown)
+- pde://schedules — cron format, timezones, firing/overlap rules, secret handling (markdown)
 
 ## pipeline_data / pipeline_vars
 See resource pde://pipeline-inputs. Short form:

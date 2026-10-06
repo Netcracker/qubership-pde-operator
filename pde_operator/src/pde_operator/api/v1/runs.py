@@ -20,13 +20,12 @@ from pde_operator.schemas.runs import (
 )
 from pde_operator.services.job_service import JobCreationError
 from pde_operator.services.profile_service import ProfileNotFoundError
+from pde_operator.services.run_input_storage import RunInputNotAvailableError, RunInputStorageError
 from pde_operator.services.run_service import (
     RunNotCancellableError,
     RunNotFoundError,
     RunNotRetriableError,
     RunService,
-    RunInputNotAvailableError,
-    RunInputStorageError,
     RunStateNotAvailableError,
 )
 from pde_operator.utils.artifact_utils import ArtifactNotFoundError, ArtifactsDisabledError, ArtifactUtils
@@ -56,6 +55,7 @@ async def list_runs(
         status: str | None = Query(default=None),
         profile_id: str | None = Query(default=None),
         created_from_template_id: UUID | None = Query(default=None),
+        triggered_by: str | None = Query(default=None),
         created_after: datetime | None = Query(default=None),
         created_before: datetime | None = Query(default=None),
         offset: int = Query(default=0, ge=0),
@@ -67,6 +67,7 @@ async def list_runs(
         status=status,
         profile_id=profile_id,
         created_from_template_id=created_from_template_id,
+        triggered_by=triggered_by,
         created_after=created_after,
         created_before=created_before,
         offset=offset,

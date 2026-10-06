@@ -16,10 +16,12 @@ from pde_operator.mcp.resources_content import (
     LIFECYCLE_MARKDOWN,
     PIPELINE_INPUTS_MARKDOWN,
     RUN_TEMPLATES_MARKDOWN,
+    SCHEDULES_MARKDOWN,
     URI_LIFECYCLE,
     URI_PIPELINE_INPUTS,
     URI_PROFILES,
     URI_RUN_TEMPLATES,
+    URI_SCHEDULES,
 )
 from pde_operator.utils.auth_utils import AuthUtils
 
@@ -93,6 +95,8 @@ def test_mcp_streamable_initialize_with_admin_token() -> None:
         assert "pde_create_run_from_template" in result["instructions"]
         assert "pde://lifecycle" in result["instructions"]
         assert "pde://run-templates" in result["instructions"]
+        assert "pde://schedules" in result["instructions"]
+        assert "pde_list_schedules" in result["instructions"]
 
 
 @pytest.mark.asyncio
@@ -117,7 +121,7 @@ async def test_mcp_resources_static_and_profiles() -> None:
     mcp = _build_mcp(app, settings)
     listed = await mcp.list_resources()
     uris = {str(r.uri) for r in listed}
-    assert uris == {URI_LIFECYCLE, URI_PIPELINE_INPUTS, URI_PROFILES, URI_RUN_TEMPLATES}
+    assert uris == {URI_LIFECYCLE, URI_PIPELINE_INPUTS, URI_PROFILES, URI_RUN_TEMPLATES, URI_SCHEDULES}
 
     lifecycle = list(await mcp.read_resource(URI_LIFECYCLE))
     assert lifecycle[0].content == LIFECYCLE_MARKDOWN
@@ -128,6 +132,10 @@ async def test_mcp_resources_static_and_profiles() -> None:
 
     templates_doc = list(await mcp.read_resource(URI_RUN_TEMPLATES))
     assert templates_doc[0].content == RUN_TEMPLATES_MARKDOWN
+
+    schedules_doc = list(await mcp.read_resource(URI_SCHEDULES))
+    assert schedules_doc[0].content == SCHEDULES_MARKDOWN
+    assert schedules_doc[0].mime_type == "text/markdown"
 
     profiles = list(await mcp.read_resource(URI_PROFILES))
     payload = json.loads(profiles[0].content)

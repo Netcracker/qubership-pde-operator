@@ -4,6 +4,7 @@ URI_LIFECYCLE = "pde://lifecycle"
 URI_PIPELINE_INPUTS = "pde://pipeline-inputs"
 URI_PROFILES = "pde://profiles"
 URI_RUN_TEMPLATES = "pde://run-templates"
+URI_SCHEDULES = "pde://schedules"
 
 LIFECYCLE_MARKDOWN = """\
 # PDE Operator — run lifecycle
@@ -121,4 +122,49 @@ the run (as long as the default profile exists).
 ## Overrides
 
 `pde_create_run_from_template` accepts optional field overrides; unset fields use the template.
+"""
+
+SCHEDULES_MARKDOWN = """\
+# PDE Operator — scheduled runs (CRON)
+
+A scheduled run stores run parameters plus a cron expression and an explicit IANA timezone.
+Enabled schedules fire normal runs on that cadence; each fired run carries
+`triggered_by = "schedule:<schedule_id>"` and its Job is labelled `pde.schedule/id`.
+
+## Cron expressions
+
+- 5 fields: `minute hour day-of-month month day-of-week`
+- 6 fields: `second minute hour day-of-month month day-of-week` (seconds come **first**)
+
+A minimum interval is enforced (default 60s), so `*/30 * * * * *` is rejected while
+`* * * * *` (every minute) is allowed.
+
+## Timezones
+
+Any IANA name (e.g. `Europe/Berlin`); read the schedule's `timezone` to see what it uses.
+The server rejects unknown names. Times are evaluated in that zone; days saved by DST are skipped
+rather than replayed.
+
+## Firing semantics
+
+| Situation | Behaviour |
+|-----------|-----------|
+| Previous run from this schedule still active | Fires anyway if `overlap_policy=allow` (default); held if `skip` |
+| Fire time passed while the operator was down | Skipped — the schedule re-anchors to the next occurrence |
+| Disabled schedule | Never fires; `next_fire_at` is null until enabled again |
+
+`last_fire_status` records `success`, `failed`, `skipped_overlap`, or `skipped_missed`.
+
+## Secrets
+
+`pipeline_vars_secure` values are stored encrypted and returned masked as `[MASKED]`.
+When updating, pass a value of `[MASKED]` to keep the stored secret, a different value to
+replace it, or omit the key to drop it.
+
+## Tools
+
+- `pde_list_schedules` / `pde_get_schedule` — discover and inspect; secure values come back masked
+
+Schedules are read-only through this MCP server: creating, editing, enabling/disabling, triggering
+and deleting them happens through the REST API (`/api/v1/schedules`) or the Dev UI.
 """

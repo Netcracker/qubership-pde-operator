@@ -1,5 +1,12 @@
+import { apiJson } from "../api/client";
 import type { CreateForm, TemplateForm } from "./types";
-import { emptyCreateForm, ensureKvPairs, kvPairsToRecord, kvPairsToText, normalizePipelineData, parseKvPairs, recordToKvPairs } from "./runs";
+import {
+  createFormToPayload,
+  emptyCreateForm,
+  ensureKvPairs,
+  parseKvPairs,
+  recordToKvPairs,
+} from "./runs";
 
 export function parseTagsText(text: string): string[] {
   const seen = new Set<string>();
@@ -63,13 +70,20 @@ export function templatePayload(form: TemplateForm) {
     name: form.name.trim(),
     description: form.description.trim() || null,
     tags: parseTagsText(form.tagsText),
-    profile_id: form.profile_id || "default",
-    pipeline_data: normalizePipelineData(form.pipeline_data),
-    pipeline_vars: kvPairsToText(form.pipeline_vars),
-    pipeline_vars_secure: kvPairsToText(form.pipeline_vars_secure),
-    is_dry_run: form.is_dry_run,
-    log_level: form.log_level,
-    env_vars: kvPairsToRecord(form.env_vars),
-    pde_image: form.pde_image.trim() || null,
+    ...createFormToPayload(form),
   };
+}
+
+/** Dynamic enum options for a declarative template field (see DeclarativeRunTemplateFormView). */
+export async function fetchDeclarativeOptions(
+  templateId: string,
+  fieldId: string,
+  context: Record<string, any>,
+): Promise<{ value: string; label: string }[]> {
+  if (!templateId) return [];
+  const data = (await apiJson(`/run-templates/${templateId}/declarative/options`, {
+    method: "POST",
+    body: JSON.stringify({ fieldId, context }),
+  })) as any;
+  return (data.options || []).map((o: any) => ({ value: o.value, label: o.label }));
 }

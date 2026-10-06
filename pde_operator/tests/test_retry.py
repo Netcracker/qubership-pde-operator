@@ -102,6 +102,10 @@ async def test_retry_run_creates_child_with_parent_state() -> None:
             "pde_operator.services.run_service.asyncio.to_thread",
             AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
         )
+        mp.setattr(
+            "pde_operator.services.run_input_storage.asyncio.to_thread",
+            AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
+        )
         result = await service.retry_run(parent.id)
 
     assert result.id is not None
@@ -191,6 +195,10 @@ async def test_retry_run_inherits_env_vars_and_retry_vars() -> None:
             "pde_operator.services.run_service.asyncio.to_thread",
             AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
         )
+        mp.setattr(
+            "pde_operator.services.run_input_storage.asyncio.to_thread",
+            AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
+        )
         result = await service.retry_run(parent.id)
 
     assert result.env_vars == {"MANUAL": "keep"}
@@ -225,6 +233,10 @@ async def test_retry_run_overrides_env_vars_and_retry_vars() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
             "pde_operator.services.run_service.asyncio.to_thread",
+            AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
+        )
+        mp.setattr(
+            "pde_operator.services.run_input_storage.asyncio.to_thread",
             AsyncMock(side_effect=lambda func, *args, **kwargs: func(*args, **kwargs)),
         )
         result = await service.retry_run(parent.id, request)

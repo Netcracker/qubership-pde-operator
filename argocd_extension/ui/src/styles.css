@@ -527,17 +527,146 @@
   gap: 0.55rem 0.75rem;
 }
 
-.pde-ext .pde-detail-pre {
+.pde-ext .pde-detail-fold > .pde-detail-fold-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pde-muted);
+  user-select: none;
+}
+
+.pde-ext .pde-detail-fold > .pde-detail-fold-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pde-ext .pde-detail-fold > .pde-detail-fold-summary::before {
+  content: "▸ ";
+}
+
+.pde-ext .pde-detail-fold[open] > .pde-detail-fold-summary::before {
+  content: "▾ ";
+}
+
+.pde-ext .pde-detail-fold-body {
+  margin-top: 0.7rem;
+}
+
+.pde-ext .pde-data-list {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pde-ext .pde-data-entry {
+  display: block;
+  padding: 0.35rem 0.55rem;
+  background: #eef2f5;
+  border: 1px solid var(--pde-line);
+  border-radius: 4px;
   font-family: var(--pde-mono);
   font-size: 0.8rem;
-  white-space: pre-wrap;
-  word-break: break-word;
   color: var(--pde-ink);
+  overflow-wrap: anywhere;
+}
+
+.pde-ext .pde-var-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pde-ext .pde-var-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pde-ext .pde-var-label {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  color: var(--pde-muted);
+  overflow-wrap: anywhere;
+}
+
+.pde-ext .pde-var-label::after {
+  content: ":";
+}
+
+.pde-ext .pde-var-value {
+  flex: 1 1 16rem;
+  min-width: 0;
+  font-family: var(--pde-mono);
+  font-size: 0.8rem;
+}
+
+.pde-ext .pde-var-value[readonly] {
+  background: #eef2f5;
+  color: var(--pde-ink);
+  cursor: default;
 }
 
 .pde-ext .pde-meta .pde-wide {
   grid-column: 1 / -1;
+}
+
+.pde-ext .pde-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eef2f5;
+  color: var(--pde-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.pde-ext .pde-schedules-table {
+  min-width: 960px;
+}
+
+.pde-ext .pde-schedules-table th,
+.pde-ext .pde-schedules-table td {
+  white-space: nowrap;
+}
+
+.pde-ext .pde-schedules-table .pde-schedule-desc,
+.pde-ext .pde-schedules-table td:nth-child(2) {
+  white-space: normal;
+  min-width: 180px;
+}
+
+.pde-ext .pde-schedule-desc {
+  font-size: 0.78rem;
+}
+
+.pde-ext .pde-schedule-last {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+
+.pde-ext .pde-schedule-preview {
+  color: var(--pde-ink);
+}
+
+.pde-ext .pde-schedule-preview-error {
+  display: inline-block;
+  padding: 0.3rem 0.5rem;
+}
+
+.pde-ext .pde-schedule-params-cards {
+  margin-top: 16px;
 }
 
 .pde-ext .pde-meta dt {

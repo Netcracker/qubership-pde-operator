@@ -36,6 +36,9 @@ Env prefix: `PDE_OPERATOR_`.
 | `PDE_DELIVERY_*_INTERVAL`                           | `5 / 15 / 15`                                              | PDE `STATUS`/`REPORT`/`LOG` delivery (seconds) |
 | `K8S_JOB_RESOURCES`                                 | (cpu/memory JSON)                                          | Default Job resources                          |
 | `RETENTION_ENABLED` / `DAYS` / `CRON`               | `true` / `30` / `0 0 * * *`                                | Retention cleanup                              |
+| `SCHEDULES_ENABLED` / `POLL_SECONDS`                | `true` / `10`                                              | CRON scheduled-run runner                      |
+| `SCHEDULES_MISSED_GRACE_SECONDS`                    | `120`                                                      | Overdue beyond this = missed fire              |
+| `SCHEDULES_MIN_INTERVAL_SECONDS`                    | `60`                                                       | Reject crons firing more often than this       |
 | `MINIO_*`                                           | localhost defaults                                         | Artifact store                                 |
 
 Full names are `PDE_OPERATOR_<Variable>` (e.g. `PDE_OPERATOR_DATABASE_URL`).

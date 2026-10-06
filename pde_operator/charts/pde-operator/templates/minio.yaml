@@ -113,7 +113,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: {{ .Values.minio.mcImage | quote }}
+          image: {{ .Values.minio.image | quote }}
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

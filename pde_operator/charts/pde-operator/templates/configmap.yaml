@@ -30,6 +30,9 @@ data:
   PDE_OPERATOR_RETENTION_ENABLED: {{ .Values.operator.retentionEnabled | quote }}
   PDE_OPERATOR_RETENTION_DAYS: {{ .Values.operator.retentionDays | quote }}
   PDE_OPERATOR_RETENTION_CRON: {{ .Values.operator.retentionCron | quote }}
+  PDE_OPERATOR_SCHEDULES_ENABLED: {{ .Values.operator.schedulesEnabled | quote }}
+  PDE_OPERATOR_SCHEDULES_POLL_SECONDS: {{ .Values.operator.schedulesPollSeconds | quote }}
+  PDE_OPERATOR_SCHEDULES_MISSED_GRACE_SECONDS: {{ .Values.operator.schedulesMissedGraceSeconds | quote }}
   PDE_OPERATOR_JOB_TOKEN_TTL_SECONDS: {{ .Values.operator.jobTokenTtlSeconds | quote }}
   PDE_OPERATOR_MINIO_ENABLED: {{ .Values.operator.minioEnabled | quote }}
   PDE_OPERATOR_MINIO_ENDPOINT: {{ include "pde-operator.minioEndpoint" . | quote }}
