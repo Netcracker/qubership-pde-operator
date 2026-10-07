@@ -1,0 +1,425 @@
+# Reusable PDE "Execute Pipeline" workflow - operator mode only.
+# Copy together with the trigger file (execute-pipeline.yml) into .github/workflows/ of the target repository.
+#
+# Repository secrets:
+#   PDE_OPERATOR_URL   - operator base URL
+#   PDE_OPERATOR_TOKEN - operator admin Bearer token
+#
+# run_mode: trigger (default) = start the operator run and exit; follow = wait for completion, fetch log and artifacts.
+# live_logs (follow only): true additionally streams flat log lines while polling; false (default) = dots.
+#   Either way the full log (with sections) is printed once at the end.
+# Retry: retry_run_id input (workflow run holding the parent's PDE_RUN_ID artifact), or the GitHub UI Re-run.
+# Native GitHub Cancel/Re-run buttons work as expected.
+
+name: Reusable "Execute Pipeline"
+
+on:
+  workflow_call:
+    inputs:
+      pipeline_data:
+        default: "https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/samples/deploy.yaml"
+        type: string
+        required: true
+      pipeline_vars:
+        default: "ENV_NAME=GITHUB_WORKFLOW;"
+        type: string
+        required: false
+      run_mode:
+        description: "trigger = start the run and exit; follow = wait for completion, fetch log and artifacts"
+        type: string
+        default: "trigger"
+        required: false
+      live_logs:
+        description: "live_logs: true = additionally stream flat log lines while polling; false = progress indication only. Either way the full log is printed once at the end"
+        type: boolean
+        default: false
+        required: false
+      log_level:
+        default: INFO
+        type: string
+        required: true
+      is_dry_run:
+        default: false
+        type: boolean
+        required: true
+      retry_run_id:
+        type: string
+        required: false
+        default: ""
+        description: "ID of Workflow Run that will be retried"
+      retry_vars:
+        default: ""
+        type: string
+        required: false
+    secrets:
+      pde_operator_url:
+        required: false
+      pde_operator_token:
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  PDE_RUN_ID_ARTIFACT: "pde_run_id.txt"
+  PDE_REPORT_ARTIFACT: "pipeline_report.json"
+  PDE_X_DEBUG_DIR: "x_debug"
+  PDE_CONSOLE_LOG: "console.log"
+  PDE_LIVE_LOG_FILE: ".pde_live_log"
+
+jobs:
+  execute-operator:
+    runs-on: ubuntu-latest
+    env:
+      PDE_OPERATOR_URL: ${{ secrets.pde_operator_url }}
+      PDE_OPERATOR_TOKEN: ${{ secrets.pde_operator_token }}
+      RETRY_RUN_ID_INPUT: ${{ inputs.retry_run_id }}
+      RETRY_VARS: ${{ inputs.retry_vars }}
+      RUN_ATTEMPT: ${{ github.run_attempt }}
+      THIS_RUN_ID: ${{ github.run_id }}
+      PIPELINES_DECLARATIVE_EXECUTOR_EXECUTION_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      PIPELINES_DECLARATIVE_EXECUTOR_EXECUTION_USER: ${{ github.actor }}
+      PIPELINES_DECLARATIVE_EXECUTOR_EXECUTION_EMAIL: ${{ github.event.sender.id }}+${{ github.actor }}@users.noreply.github.com
+      PIPELINES_DECLARATIVE_EXECUTOR_AUTH_RULES: '[{"host":"githubusercontent.com","type":"token","headers":{"Authorization":"token {token}"},"token_env_var":"GITHUB_TOKEN"}]'
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Create or retry operator run
+        id: start
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PIPELINE_DATA: ${{ inputs.pipeline_data }}
+          PIPELINE_VARS: ${{ inputs.pipeline_vars }}
+          LOG_LEVEL: ${{ inputs.log_level }}
+          IS_DRY_RUN: ${{ inputs.is_dry_run }}
+          RUN_MODE: ${{ inputs.run_mode }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PDE_OPERATOR_URL:-}" ] || [ -z "${PDE_OPERATOR_TOKEN:-}" ]; then
+            echo "::error::Set repository secrets PDE_OPERATOR_URL and PDE_OPERATOR_TOKEN"
+            exit 1
+          fi
+          PDE_OPERATOR_URL="${PDE_OPERATOR_URL%/}"
+
+          operator_curl() {
+            curl --header "Authorization: Bearer ${PDE_OPERATOR_TOKEN}" "$@"
+          }
+          _operator_retry() {
+            local a=1
+            until "$@"; do
+              [ "$a" -ge 5 ] && return 1
+              echo "Request failed (${a}/5); retrying in 5s..."
+              sleep 5
+              a=$((a + 1))
+            done
+          }
+
+          collect_run_env_vars() {
+            jq -n \
+              --arg token "${GITHUB_TOKEN:-}" \
+              '(env | with_entries(select(.key | startswith("PIPELINES_DECLARATIVE_EXECUTOR_"))))
+               + {GITHUB_ACTIONS: "True"}
+               + (if ($token | length) > 0 then {GITHUB_TOKEN: $token} else {} end)'
+          }
+
+          SOURCE_RUN_ID=""
+          if [ "${RUN_ATTEMPT}" -gt 1 ]; then
+            SOURCE_RUN_ID="${THIS_RUN_ID}"
+            echo "GitHub UI re-run detected (attempt ${RUN_ATTEMPT}) · loading retry context from run ${SOURCE_RUN_ID}"
+          elif [ -n "${RETRY_RUN_ID_INPUT}" ]; then
+            SOURCE_RUN_ID="${RETRY_RUN_ID_INPUT}"
+            echo "Explicit retry_run_id · workflow run ${SOURCE_RUN_ID}"
+          fi
+
+          PARENT_RUN_ID=""
+          if [ -n "${SOURCE_RUN_ID}" ]; then
+            mkdir -p .retry-download
+            if ! gh run download "${SOURCE_RUN_ID}" -R "${GH_REPO}" -n "PDE_RUN_ID" -D .retry-download 2>/tmp/gh_dl_err; then
+              echo "::error::No PDE_RUN_ID artifact on run ${SOURCE_RUN_ID}; impossible to retry"
+              cat /tmp/gh_dl_err >&2 || true
+              exit 1
+            fi
+            ID_FILE="$(find .retry-download -name "${PDE_RUN_ID_ARTIFACT}" -type f | head -n 1 || true)"
+            if [ -z "${ID_FILE}" ]; then
+              echo "::error::PDE_RUN_ID artifact from run ${SOURCE_RUN_ID} has no ${PDE_RUN_ID_ARTIFACT}"
+              find .retry-download -type f >&2 || true
+              exit 1
+            fi
+            PARENT_RUN_ID="$(tr -d '[:space:]' < "${ID_FILE}")"
+            if [ -z "${PARENT_RUN_ID}" ]; then
+              echo "::error::${PDE_RUN_ID_ARTIFACT} is empty; impossible to retry"
+              exit 1
+            fi
+            echo "Retrying operator run ${PARENT_RUN_ID}"
+          fi
+
+          if [ -n "${PARENT_RUN_ID}" ]; then
+            RUN_URL="${PDE_OPERATOR_URL}/api/v1/runs/${PARENT_RUN_ID}/retry"
+            REQUEST_BODY="$(jq -n --arg retry_vars "${RETRY_VARS}" --argjson env_vars "$(collect_run_env_vars)" \
+              '{env_vars: $env_vars, retry_vars: (if ($retry_vars | length) > 0 then $retry_vars else null end)}')"
+          else
+            echo "Creating operator run..."
+            RUN_URL="${PDE_OPERATOR_URL}/api/v1/runs"
+            REQUEST_BODY="$(jq -n \
+              --arg pipeline_data "${PIPELINE_DATA}" \
+              --arg pipeline_vars "${PIPELINE_VARS}" \
+              --arg log_level "${LOG_LEVEL}" \
+              --argjson is_dry_run "${IS_DRY_RUN}" \
+              --argjson env_vars "$(collect_run_env_vars)" \
+              '{pipeline_data: $pipeline_data, pipeline_vars: $pipeline_vars, is_dry_run: $is_dry_run, log_level: $log_level, env_vars: $env_vars}')"
+          fi
+
+          response_tmp="$(mktemp)"
+          HTTP_CODE="$(operator_curl --silent --show-error --request POST --header "Content-Type: application/json" \
+            --data "${REQUEST_BODY}" --output "${response_tmp}" --write-out "%{http_code}" "${RUN_URL}")" || {
+            echo "::error::Operator request failed (curl exit $?)"
+            rm -f "${response_tmp}"
+            exit 1
+          }
+          if [ "${HTTP_CODE}" != 201 ]; then
+            ERROR_MSG="$(jq -r '.detail // empty' "${response_tmp}" 2>/dev/null || true)"
+            rm -f "${response_tmp}"
+            echo "::error::Operator request failed (HTTP ${HTTP_CODE})${ERROR_MSG:+: ${ERROR_MSG}}"
+            exit 1
+          fi
+          RUN_ID="$(jq -r '.id' "${response_tmp}")"
+          EXECUTION_URL="$(jq -r '.execution_url // empty' "${response_tmp}")"
+          rm -f "${response_tmp}"
+          echo "${RUN_ID}" > "${PDE_RUN_ID_ARTIFACT}"
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "Operator run ${RUN_ID}"
+          if [ -n "${EXECUTION_URL}" ]; then
+            echo "Execution URL: ${EXECUTION_URL}"
+          fi
+          if [ "${RUN_MODE}" != "follow" ]; then
+            echo "Run triggered; not waiting for completion (run_mode=${RUN_MODE})"
+          fi
+
+      - name: Poll operator run
+        id: poll
+        if: inputs.run_mode == 'follow'
+        env:
+          RUN_ID: ${{ steps.start.outputs.run_id }}
+          LIVE_LOGS: ${{ inputs.live_logs }}
+        run: |
+          set -euo pipefail
+          PDE_OPERATOR_URL="${PDE_OPERATOR_URL%/}"
+          operator_curl() {
+            curl --header "Authorization: Bearer ${PDE_OPERATOR_TOKEN}" "$@"
+          }
+          _operator_retry() {
+            local a=1
+            until "$@"; do
+              [ "$a" -ge 5 ] && return 1
+              echo "Request failed (${a}/5); retrying in 5s..."
+              sleep 5
+              a=$((a + 1))
+            done
+          }
+
+          live_log_fetch() {
+            # 0 = ok (delta printed if any); 1 = fetch failed; 2 = content replaced by the final (stdout) version
+            if ! operator_curl --fail-with-body --silent --show-error --output "${PDE_LIVE_LOG_FILE}.new" \
+                "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}/artifacts/log"; then
+              rm -f "${PDE_LIVE_LOG_FILE}.new"
+              return 1
+            fi
+            NEW_SIZE="$(wc -c < "${PDE_LIVE_LOG_FILE}.new")"
+            if [ -f "${PDE_LIVE_LOG_FILE}" ]; then
+              head -c "${LIVE_OFFSET}" "${PDE_LIVE_LOG_FILE}.new" > .pde_live_cmp.a
+              head -c "${LIVE_OFFSET}" "${PDE_LIVE_LOG_FILE}" > .pde_live_cmp.b
+              if ! cmp -s .pde_live_cmp.a .pde_live_cmp.b; then
+                rm -f .pde_live_cmp.a .pde_live_cmp.b "${PDE_LIVE_LOG_FILE}.new"
+                return 2
+              fi
+              rm -f .pde_live_cmp.a .pde_live_cmp.b
+            fi
+            if [ "${NEW_SIZE}" -gt "${LIVE_OFFSET}" ]; then
+              tail -c +$((LIVE_OFFSET + 1)) "${PDE_LIVE_LOG_FILE}.new"
+              LIVE_OFFSET="${NEW_SIZE}"
+            fi
+            mv "${PDE_LIVE_LOG_FILE}.new" "${PDE_LIVE_LOG_FILE}"
+            return 0
+          }
+
+          LIVE_ACTIVE=0
+          LIVE_TS=""
+          LIVE_OFFSET=0
+          DOTS_LINE=0
+          if [ "${LIVE_LOGS}" = "true" ]; then
+            LIVE_ACTIVE=1
+            echo "Live logs enabled - streaming log lines while polling"
+          fi
+
+          echo "Polling for run execution to finish..."
+          POLL_START="$(date +%s)"
+          POLLS=0
+          while true; do
+            RUN_JSON="$(_operator_retry operator_curl --fail-with-body --silent --show-error "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}")"
+            STATUS="$(echo "${RUN_JSON}" | jq -r '.status')"
+            case "${STATUS}" in
+              SUCCESS|FAILED|CANCELLED) break ;;
+            esac
+
+            if [ "${LIVE_ACTIVE}" -eq 1 ]; then
+              LOG_TS="$(echo "${RUN_JSON}" | jq -r '.log_updated_at // empty')"
+              if [ -n "${LOG_TS}" ] && [ "${LOG_TS}" != "${LIVE_TS}" ]; then
+                LIVE_RC=0
+                live_log_fetch || LIVE_RC=$?
+                case "${LIVE_RC}" in
+                  0) LIVE_TS="${LOG_TS}" ;;
+                  1) : ;; # fetch failed; the next poll retries
+                  2)
+                    printf '\n'
+                    echo "::warning::Log is already at its final version; stopping the live stream"
+                    DOTS_LINE=0
+                    LIVE_ACTIVE=0
+                    ;;
+                esac
+              fi
+            fi
+
+            sleep 5
+            POLLS=$((POLLS + 1))
+            if [ "${LIVE_ACTIVE}" -eq 0 ]; then
+              if [ $((POLLS % 12)) -eq 0 ]; then
+                NOW="$(date +%s)"
+                ELAPSED=$((NOW - POLL_START))
+                printf ' %s · %dm%02ds\n' "${STATUS}" $((ELAPSED / 60)) $((ELAPSED % 60))
+                DOTS_LINE=0
+              else
+                printf '.'
+                DOTS_LINE=1
+              fi
+            fi
+          done
+
+          if [ "${LIVE_ACTIVE}" -eq 1 ] && [ -f "${PDE_LIVE_LOG_FILE}" ] && [ -n "$(tail -c 1 "${PDE_LIVE_LOG_FILE}")" ]; then
+            printf '\n'
+          fi
+          if [ "${DOTS_LINE}" -eq 1 ]; then
+            printf '\n'
+          fi
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+          echo "Pipeline finished with status ${STATUS} · operator run ${RUN_ID}"
+          if [ "${STATUS}" != "SUCCESS" ]; then
+            exit 1
+          fi
+
+      - name: Cancel operator run
+        if: cancelled() && inputs.run_mode == 'follow'
+        env:
+          RUN_ID: ${{ steps.start.outputs.run_id }}
+        run: |
+          set +e
+          if [ -z "${RUN_ID:-}" ] && [ -f "${PDE_RUN_ID_ARTIFACT}" ]; then
+            RUN_ID="$(tr -d '[:space:]' < "${PDE_RUN_ID_ARTIFACT}")"
+          fi
+          if [ -z "${RUN_ID:-}" ]; then
+            echo "No operator run id; nothing to cancel"
+            exit 0
+          fi
+          PDE_OPERATOR_URL="${PDE_OPERATOR_URL%/}"
+          operator_curl() {
+            curl --header "Authorization: Bearer ${PDE_OPERATOR_TOKEN}" "$@"
+          }
+          _operator_retry() {
+            local a=1
+            until "$@"; do
+              [ "$a" -ge 5 ] && return 1
+              sleep 5
+              a=$((a + 1))
+            done
+          }
+          echo "GitHub job canceled · requesting operator cancel for run ${RUN_ID}"
+          _operator_retry operator_curl --fail-with-body --silent --show-error --output /dev/null \
+            --request POST "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}/cancel" || true
+          echo "Waiting for operator run to reach a terminal status..."
+          for _ in $(seq 1 12); do
+            RUN_JSON="$(operator_curl --fail-with-body --silent --show-error "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}")" || break
+            STATUS="$(echo "${RUN_JSON}" | jq -r '.status')"
+            case "${STATUS}" in
+              SUCCESS|FAILED|CANCELLED) break ;;
+            esac
+            sleep 5
+          done
+          echo "Operator run ${RUN_ID} status: ${STATUS:-unknown}"
+
+      - name: Print PDE logs and download artifacts
+        if: always() && inputs.run_mode == 'follow' && steps.start.outputs.run_id != ''
+        env:
+          RUN_ID: ${{ steps.start.outputs.run_id }}
+        run: |
+          set +e
+          PDE_OPERATOR_URL="${PDE_OPERATOR_URL%/}"
+          operator_curl() {
+            curl --header "Authorization: Bearer ${PDE_OPERATOR_TOKEN}" "$@"
+          }
+          _operator_retry() {
+            local a=1
+            until "$@"; do
+              [ "$a" -ge 5 ] && return 1
+              sleep 5
+              a=$((a + 1))
+            done
+          }
+          _operator_retry operator_curl --fail-with-body --silent --show-error \
+            --output "${PDE_CONSOLE_LOG}" "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}/artifacts/log" || true
+          if [ -s "${PDE_CONSOLE_LOG}" ]; then
+            echo "----- PDE console.log · operator run ${RUN_ID} -----"
+            cat "${PDE_CONSOLE_LOG}"
+          fi
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          log, out = Path(os.environ["PDE_CONSOLE_LOG"]), os.environ.get("GITHUB_STEP_SUMMARY")
+          if not out or not log.is_file() or not log.stat().st_size: sys.exit(0)
+          lines = log.read_text(errors="replace").splitlines()
+          rule = lambda s: len(t := s.strip()) >= 20 and set(t) <= {"="}
+          i = next((k for k in range(len(lines) - 1, -1, -1) if "PIPELINE SUMMARY" in lines[k]), None)
+          if i is None: sys.exit(0)
+          h = next((k for k in range(i, -1, -1) if "| Stage ID" in lines[k]), i)
+          s = next((k for k in range(h, -1, -1) if rule(lines[k])), h)
+          e = next((k for k in range(i, len(lines)) if rule(lines[k])), i)
+          block = "\n".join(lines[s : e + 1]).rstrip()
+          if block: Path(out).open("a", encoding="utf-8").write(f"## PDE Pipeline Summary\n\n```\n{block}\n```\n")
+          PY
+          _operator_retry operator_curl --fail-with-body --silent --show-error \
+            --output .x_debug.zip "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}/artifacts/x_debug" || true
+          if [ -s .x_debug.zip ]; then
+            mkdir -p "${PDE_X_DEBUG_DIR}"
+            unzip -q -o .x_debug.zip -d "${PDE_X_DEBUG_DIR}"
+            rm -f .x_debug.zip
+          fi
+          _operator_retry operator_curl --fail-with-body --silent --show-error \
+            --output "${PDE_REPORT_ARTIFACT}" "${PDE_OPERATOR_URL}/api/v1/runs/${RUN_ID}/artifacts/report" || true
+
+      - name: Upload PDE_RUN_ID
+        uses: actions/upload-artifact@v7
+        if: always() && steps.start.outputs.run_id != ''
+        with:
+          name: PDE_RUN_ID
+          path: ${{ env.PDE_RUN_ID_ARTIFACT }}
+          if-no-files-found: warn
+          overwrite: true
+
+      - name: Upload x_debug
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ env.PDE_X_DEBUG_DIR }}
+          path: ${{ env.PDE_X_DEBUG_DIR }}
+          if-no-files-found: warn
+          overwrite: true
+
+      - name: Upload pipeline_report.json
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ env.PDE_REPORT_ARTIFACT }}
+          path: ${{ env.PDE_REPORT_ARTIFACT }}
+          if-no-files-found: warn
+          overwrite: true

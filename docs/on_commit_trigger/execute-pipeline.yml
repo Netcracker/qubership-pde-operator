@@ -1,0 +1,77 @@
+# PDE trigger workflow - copy together with reusable-pipeline.yml into .github/workflows/ of the target repository.
+#
+# Triggers:
+#   - push to the branches listed below, using the default inputs
+#   - manual run (Actions -> Execute Pipeline -> Run workflow) - inputs can be overridden
+#
+# Repository secrets: PDE_OPERATOR_URL, PDE_OPERATOR_TOKEN
+
+name: Execute Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "trigger = start the run and exit; follow = wait for completion, fetch log and artifacts"
+        type: choice
+        options:
+          - trigger
+          - follow
+        default: trigger
+      live_logs:
+        description: "live_logs: true = additionally stream flat log lines while polling; false = progress indication only. Either way the full log is printed once at the end"
+        type: boolean
+        default: false
+      pipeline_data:
+        default: "https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/samples/deploy.yaml;"
+        type: string
+        required: true
+      pipeline_vars:
+        default: "ENV_NAME=GITHUB_WORKFLOW;"
+        type: string
+        required: false
+      log_level:
+        required: true
+        type: choice
+        options:
+          - DEBUG
+          - INFO
+          - WARNING
+          - ERROR
+        default: INFO
+      is_dry_run:
+        default: true
+        required: true
+        type: boolean
+      retry_run_id:
+        type: string
+        required: false
+        description: "Workflow run id to retry from (leave empty for fresh run, or use UI Re-run failed jobs)"
+      retry_vars:
+        default: ""
+        type: string
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  execute:
+    uses: ./.github/workflows/reusable-pipeline.yml
+    with:
+      run_mode: ${{ inputs.run_mode || 'trigger' }}
+      live_logs: ${{ inputs.live_logs || false }}
+      pipeline_data: ${{ inputs.pipeline_data || 'https://raw.githubusercontent.com/Netcracker/qubership-pipelines-declarative-executor/refs/heads/sample_pipelines/tests/pipeline_configs/samples/deploy.yaml;' }}
+      pipeline_vars: ${{ inputs.pipeline_vars || 'ENV_NAME=GITHUB_WORKFLOW;' }}
+      log_level: ${{ inputs.log_level || 'INFO' }}
+      is_dry_run: ${{ (github.event_name == 'workflow_dispatch' && inputs.is_dry_run) || (github.event_name != 'workflow_dispatch' && true) }}
+      retry_run_id: ${{ inputs.retry_run_id || '' }}
+      retry_vars: ${{ inputs.retry_vars || '' }}
+    secrets:
+      pde_operator_url: ${{ secrets.PDE_OPERATOR_URL }}
+      pde_operator_token: ${{ secrets.PDE_OPERATOR_TOKEN }}

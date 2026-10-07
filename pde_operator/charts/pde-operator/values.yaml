@@ -37,6 +37,7 @@ operator:
   executionUrlBase: ""  # Empty -> same as operatorBaseUrl (override for port-forward / external URL)
   logLevel: INFO
   apiPrefix: /api/v1
+  keepAliveTimeoutSeconds: 30
   k8sJobCreationEnabled: true
   k8sJobTtlSeconds: 60
   queueEnabled: true
@@ -46,7 +47,7 @@ operator:
   reconcilerIntervalSeconds: 30
   reconcilerStuckTimeoutSeconds: 300
   cancelGraceSeconds: 60
-  pdeDefaultImage: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2
+  pdeDefaultImage: ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.3
   pdeDeliveryStatusInterval: 5
   pdeDeliveryReportInterval: 15
   pdeDeliveryLogInterval: 15

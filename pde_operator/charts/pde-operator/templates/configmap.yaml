@@ -10,6 +10,7 @@ data:
   PDE_OPERATOR_LOG_LEVEL: {{ .Values.operator.logLevel | quote }}
   PDE_OPERATOR_UI_ENABLED: {{ .Values.ui.enabled | quote }}
   PDE_OPERATOR_API_PREFIX: {{ .Values.operator.apiPrefix | quote }}
+  PDE_OPERATOR_KEEP_ALIVE_TIMEOUT_SECONDS: {{ .Values.operator.keepAliveTimeoutSeconds | quote }}
   PDE_OPERATOR_EXECUTION_URL_BASE: {{ include "pde-operator.executionUrlBase" . | quote }}
   PDE_OPERATOR_OPERATOR_BASE_URL: {{ include "pde-operator.operatorBaseUrl" . | quote }}
   PDE_OPERATOR_K8S_NAMESPACE: {{ include "pde-operator.k8sNamespace" . | quote }}

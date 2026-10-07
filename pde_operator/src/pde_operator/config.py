@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     host: str = "0.0.0.0"
     port: int = 8000
+    keep_alive_timeout_seconds: int = 30
     api_prefix: str = "/api/v1"
     log_level: str = "INFO"
     ui_enabled: bool = True
@@ -37,7 +38,7 @@ class Settings(BaseSettings):
     reconciler_stuck_timeout_seconds: int = 300  # fail stuck runs with no progress (5 min)
     cancel_grace_seconds: int = 60  # wait after SIGINT before hard-stopping the Job
 
-    pde_default_image: str = "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.2"
+    pde_default_image: str = "ghcr.io/netcracker/qubership-pipelines-declarative-executor:v2.2.3"
     pde_delivery_status_interval: int = 5
     pde_delivery_report_interval: int = 15
     pde_delivery_log_interval: int = 15
