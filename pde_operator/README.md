@@ -32,7 +32,7 @@ Env prefix: `PDE_OPERATOR_`.
 | `QUEUE_ENABLED` / `QUEUE_POLL_SECONDS`              | `true` / `5`                                               | FIFO queue worker                              |
 | `RECONCILER_ENABLED` / `INTERVAL` / `STUCK_TIMEOUT` | `true` / `30` / `1800`                                     | Job run reconciler                             |
 | `CANCEL_GRACE_SECONDS`                              | `60`                                                       | SIGINT then hard-stop                          |
-| `PDE_DEFAULT_IMAGE`                                 | `ghcr.io/.../executor:v2.2.2`                              | Seeded `default` profile image                 |
+| `PDE_DEFAULT_IMAGE`                                 | `ghcr.io/.../executor:v2.2.3`                              | Seeded `default` profile image                 |
 | `PDE_DELIVERY_*_INTERVAL`                           | `5 / 15 / 15`                                              | PDE `STATUS`/`REPORT`/`LOG` delivery (seconds) |
 | `K8S_JOB_RESOURCES`                                 | (cpu/memory JSON)                                          | Default Job resources                          |
 | `RETENTION_ENABLED` / `DAYS` / `CRON`               | `true` / `30` / `0 0 * * *`                                | Retention cleanup                              |
