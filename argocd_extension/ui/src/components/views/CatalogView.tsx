@@ -52,6 +52,7 @@ export function CatalogView(props: {
   } = props;
 
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const uploadInputRef = React.useRef<HTMLInputElement>(null);
   const selected = selectedId ? templates.find((t: any) => t.id === selectedId) || null : null;
 
   React.useEffect(() => {
@@ -91,7 +92,6 @@ export function CatalogView(props: {
   }
 
   const pager = pageRange(total, page);
-  const uploadInputRef = React.useRef<HTMLInputElement>(null);
 
   return (
     <section>
