@@ -27,7 +27,9 @@ export function CatalogView(props: {
   onHistory: (id: string) => void;
   onSchedule: (id: string) => void;
   onEdit: (id: string) => void;
+  onClone: (id: string) => void;
   onDelete: (id: string, name?: string) => void;
+  cloningId?: string | null;
   onForm: (form: TemplateForm) => void;
   onSubmitCreate: () => void;
   onSubmitUpdate: () => void;
@@ -48,6 +50,15 @@ export function CatalogView(props: {
     submitting,
     canWrite = true,
   } = props;
+
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const selected = selectedId ? templates.find((t: any) => t.id === selectedId) || null : null;
+
+  React.useEffect(() => {
+    if (!props.adminMode || (selectedId && !templates.some((t: any) => t.id === selectedId))) {
+      setSelectedId(null);
+    }
+  }, [props.adminMode, selectedId, templates]);
 
   if ((subview === "create" || subview === "edit") && !props.adminMode) {
     return null;
@@ -120,6 +131,33 @@ export function CatalogView(props: {
         </div>
       </div>
 
+      {props.adminMode ? (
+        <div className="pde-toolbar pde-toolbar-end">
+          <div className="pde-toolbar-right">
+            <Btn onClick={() => selected && props.onSchedule(selected.id)} icon="clock" disabled={!selected}>
+              Schedule
+            </Btn>
+            <Btn
+              onClick={() => selected && selected.template_kind !== "declarative" && props.onClone(selected.id)}
+              icon="copy"
+              disabled={!selected || selected.template_kind === "declarative" || !!props.cloningId}
+            >
+              Clone
+            </Btn>
+            <Btn
+              onClick={() => selected && selected.template_kind !== "declarative" && props.onEdit(selected.id)}
+              icon="pencil-alt"
+              disabled={!selected || selected.template_kind === "declarative"}
+            >
+              Edit
+            </Btn>
+            <Btn onClick={() => selected && props.onDelete(selected.id, selected.name)} icon="times" disabled={!selected}>
+              Delete
+            </Btn>
+          </div>
+        </div>
+      ) : null}
+
       <div className="pde-toolbar" style={{ marginTop: 0 }}>
         <input
           className="pde-input"
@@ -143,6 +181,7 @@ export function CatalogView(props: {
         <table>
           <thead>
             <tr>
+              {props.adminMode ? <th style={{ width: 32 }} /> : null}
               {["Name", "Tags", "Profile", "Updated", ""].map((label) => (
                 <th key={label || "actions"}>{label}</th>
               ))}
@@ -151,7 +190,7 @@ export function CatalogView(props: {
           <tbody>
             {templates.length === 0 ? (
               <tr>
-                <td colSpan={5} className="pde-muted">
+                <td colSpan={props.adminMode ? 6 : 5} className="pde-muted">
                   {loading ? "Loading..." : "No run templates yet."}
                 </td>
               </tr>
@@ -162,6 +201,16 @@ export function CatalogView(props: {
                   className={canWrite ? "pde-clickable" : undefined}
                   onClick={canWrite ? () => props.onOpen(t.id) : undefined}
                 >
+                  {props.adminMode ? (
+                    <td onClick={(e: any) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${t.name}`}
+                        checked={selectedId === t.id}
+                        onChange={() => setSelectedId(selectedId === t.id ? null : t.id)}
+                      />
+                    </td>
+                  ) : null}
                   <td>
                     <div className="pde-template-title">
                       <TemplateKindBadge kind={t.template_kind} />
@@ -191,21 +240,6 @@ export function CatalogView(props: {
                       >
                         History
                       </Btn>
-                      {props.adminMode ? (
-                        <Btn small onClick={() => props.onSchedule(t.id)} icon="clock">
-                          Schedule
-                        </Btn>
-                      ) : null}
-                      {props.adminMode && t.template_kind !== "declarative" ? (
-                        <Btn small onClick={() => props.onEdit(t.id)} icon="pencil-alt">
-                          Edit
-                        </Btn>
-                      ) : null}
-                      {props.adminMode ? (
-                        <Btn small onClick={() => props.onDelete(t.id, t.name)} icon="times">
-                          Delete
-                        </Btn>
-                      ) : null}
                     </div>
                   </td>
                 </tr>

@@ -26,6 +26,8 @@ export function useCatalog({ tab, catalogSubview, go, messages }: UseCatalogArgs
   const [templateForm, setTemplateForm] = React.useState<TemplateForm>(emptyTemplateForm());
   const [submitting, setSubmitting] = React.useState(false);
   const [uploadingDeclarative, setUploadingDeclarative] = React.useState(false);
+  const [cloningId, setCloningId] = React.useState<string | null>(null);
+  const cloningRef = React.useRef(false);
   const [profiles, setProfiles] = React.useState<any[]>([]);
   const [formReady, setFormReady] = React.useState(catalogSubview !== "edit");
   const listLoadSeqRef = React.useRef(0);
@@ -168,6 +170,26 @@ export function useCatalog({ tab, catalogSubview, go, messages }: UseCatalogArgs
     [loadList, setError, setFlash],
   );
 
+  const cloneTemplate = React.useCallback(
+    async (id: string) => {
+      if (cloningRef.current) return;
+      cloningRef.current = true;
+      setCloningId(id);
+      setError("");
+      try {
+        const cloned = (await apiJson(`/run-templates/${id}/clone`, { method: "POST" })) as any;
+        setFlash(`Template cloned as "${cloned.name}"`);
+        await loadList({ page: 0 });
+      } catch (e) {
+        setError(errMsg(e));
+      } finally {
+        cloningRef.current = false;
+        setCloningId(null);
+      }
+    },
+    [loadList, setError, setFlash],
+  );
+
   const uploadDeclarativeTemplate = React.useCallback(
     async (file: File) => {
       setUploadingDeclarative(true);
@@ -242,6 +264,8 @@ export function useCatalog({ tab, catalogSubview, go, messages }: UseCatalogArgs
     openHistory,
     submitTemplate,
     deleteTemplate,
+    cloningId,
+    cloneTemplate,
     uploadingDeclarative,
     uploadDeclarativeTemplate,
   };

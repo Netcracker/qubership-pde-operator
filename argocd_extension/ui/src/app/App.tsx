@@ -183,6 +183,8 @@ export function PdeExtensionApp(_props: unknown) {
             onHistory={catalog.openHistory}
             onSchedule={schedules.openScheduleCreate}
             onEdit={catalog.openEdit}
+            onClone={catalog.cloneTemplate}
+            cloningId={catalog.cloningId}
             onDelete={catalog.deleteTemplate}
             uploadingDeclarative={catalog.uploadingDeclarative}
             onUploadDeclarativeTemplate={catalog.uploadDeclarativeTemplate}

@@ -11,7 +11,11 @@ from pde_operator.db.models.run_template import RunTemplate
 from pde_operator.schemas.run_templates import CreateRunFromTemplateRequest, CreateSimpleRunTemplateRequest
 from pde_operator.services.profile_service import ProfileNotFoundError
 from pde_operator.services.run_service import RunService
-from pde_operator.services.run_template_service import RunTemplateKindError, RunTemplateService
+from pde_operator.services.run_template_service import (
+    RunTemplateKindError,
+    RunTemplateNotFoundError,
+    RunTemplateService,
+)
 
 
 def _settings() -> Settings:
@@ -177,6 +181,79 @@ async def test_update_simple_template_rejects_declarative_kind() -> None:
             template.id,
             CreateSimpleRunTemplateRequest(name="x", pipeline_data="https://example.com/p.yaml"),
         )
+
+
+@pytest.mark.asyncio
+async def test_clone_template_copies_all_values() -> None:
+    template = _template(is_dry_run=True, log_level="DEBUG", pde_image="pde:dev")
+    added: list[RunTemplate] = []
+
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=template)
+    session.add = MagicMock(side_effect=added.append)
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+
+    service = RunTemplateService(session)
+    cloned = await service.clone_template(template.id)
+
+    assert cloned is added[0]
+    assert cloned.id != template.id
+    assert cloned.name == "Deploy prod (clone)"
+    assert cloned.description == template.description
+    assert cloned.tags == template.tags
+    assert cloned.tags is not template.tags
+    assert cloned.template_kind == "simple"
+    assert cloned.declarative_spec is None
+    assert cloned.profile_id == template.profile_id
+    assert cloned.pipeline_data == template.pipeline_data
+    assert cloned.pipeline_vars == template.pipeline_vars
+    assert cloned.pipeline_vars_secure == template.pipeline_vars_secure
+    assert cloned.is_dry_run is True
+    assert cloned.log_level == "DEBUG"
+    assert cloned.env_vars == template.env_vars
+    assert cloned.env_vars is not template.env_vars
+    assert cloned.pde_image == "pde:dev"
+    session.add.assert_called_once()
+    session.commit.assert_awaited()
+    session.refresh.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_clone_template_does_not_number_names() -> None:
+    template = _template()
+
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=template)
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+
+    service = RunTemplateService(session)
+    first = await service.clone_template(template.id)
+    second = await service.clone_template(template.id)
+
+    assert first.name == "Deploy prod (clone)"
+    assert second.name == "Deploy prod (clone)"
+
+
+@pytest.mark.asyncio
+async def test_clone_template_missing_raises() -> None:
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=None)
+    service = RunTemplateService(session)
+    with pytest.raises(RunTemplateNotFoundError):
+        await service.clone_template(uuid4())
+
+
+@pytest.mark.asyncio
+async def test_clone_template_rejects_declarative_kind() -> None:
+    template = _template(template_kind="declarative")
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=template)
+    service = RunTemplateService(session)
+    with pytest.raises(RunTemplateKindError):
+        await service.clone_template(template.id)
 
 
 @pytest.mark.asyncio

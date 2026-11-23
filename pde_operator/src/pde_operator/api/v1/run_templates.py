@@ -13,7 +13,11 @@ from pde_operator.schemas.run_templates import (
 from pde_operator.schemas.runs import CreateRunResponse
 from pde_operator.services.profile_service import ProfileNotFoundError
 from pde_operator.services.run_service import RunService
-from pde_operator.services.run_template_service import RunTemplateKindError, RunTemplateNotFoundError, RunTemplateService
+from pde_operator.services.run_template_service import (
+    RunTemplateKindError,
+    RunTemplateNotFoundError,
+    RunTemplateService,
+)
 from pde_operator.utils.depend_utils import DependUtils
 
 router = APIRouter(prefix="/run-templates", tags=["run-templates"])
@@ -60,6 +64,20 @@ async def update_simple_run_template(
 ) -> RunTemplateDetail:
     try:
         template = await service.update_template(template_id, request)
+    except RunTemplateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RunTemplateKindError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RunTemplateDetail.model_validate(template)
+
+
+@router.post("/{template_id}/clone", response_model=RunTemplateDetail, status_code=201)
+async def clone_run_template(
+        template_id: UUID,
+        service: RunTemplateService = Depends(DependUtils.get_run_template_service),
+) -> RunTemplateDetail:
+    try:
+        template = await service.clone_template(template_id)
     except RunTemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RunTemplateKindError as exc:

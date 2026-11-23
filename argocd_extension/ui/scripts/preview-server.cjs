@@ -254,6 +254,7 @@ function apiResponse(method, pathname, { body, search }) {
   const runMatch = /^\/api\/v1\/runs\/([^/]+)$/.exec(pathname);
   const runAction = /^\/api\/v1\/runs\/([^/]+)\/(cancel|retry)$/.exec(pathname);
   const templateMatch = /^\/api\/v1\/run-templates\/([^/]+)$/.exec(pathname);
+  const templateCloneMatch = /^\/api\/v1\/run-templates\/([^/]+)\/clone$/.exec(pathname);
   const scheduleMatch = /^\/api\/v1\/schedules\/([^/]+)$/.exec(pathname);
   const scheduleAction = /^\/api\/v1\/schedules\/([^/]+)\/(trigger|enable|disable)$/.exec(pathname);
 
@@ -289,11 +290,38 @@ function apiResponse(method, pathname, { body, search }) {
     return { status: 200, body: { items: [{ id: "default", pde_image: RICH_RUN.pde_image }], total: 1 } };
   }
   if (pathname === "/api/v1/run-templates" && method === "GET") {
-    return { status: 200, body: { items: TEMPLATES, total: TEMPLATES.length, offset: 0, limit: 20 } };
+    const q = (search.get("q") || "").toLowerCase();
+    const tag = search.get("tag") || "";
+    const items = TEMPLATES.filter((t) => {
+      const hitsQuery = !q || [t.id, t.name, t.description, ...(t.tags || [])].join(" ").toLowerCase().includes(q);
+      const hitsTag = !tag || (t.tags || []).includes(tag);
+      return hitsQuery && hitsTag;
+    });
+    return { status: 200, body: { items, total: items.length, offset: 0, limit: 20 } };
   }
   if (templateMatch && method === "GET") {
     const template = TEMPLATES.find((t) => t.id === templateMatch[1]);
     return template ? { status: 200, body: template } : { status: 404, body: { detail: "template not found" } };
+  }
+  if (templateMatch && method === "DELETE") {
+    const index = TEMPLATES.findIndex((t) => t.id === templateMatch[1]);
+    if (index < 0) return { status: 404, body: { detail: "template not found" } };
+    TEMPLATES.splice(index, 1);
+    return { status: 204, body: null };
+  }
+  if (templateCloneMatch && method === "POST") {
+    const source = TEMPLATES.find((t) => t.id === templateCloneMatch[1]);
+    if (!source) return { status: 404, body: { detail: "template not found" } };
+    if (source.template_kind !== "simple") {
+      return {
+        status: 400,
+        body: { detail: `Run template '${source.id}' is kind '${source.template_kind}', expected 'simple' for this operation` },
+      };
+    }
+    const now = new Date().toISOString();
+    const cloned = { ...source, id: crypto.randomUUID(), name: `${source.name} (clone)`, created_at: now, updated_at: now };
+    TEMPLATES.unshift(cloned);
+    return { status: 201, body: cloned };
   }
   if (pathname === "/api/v1/schedules/timezones") return { status: 200, body: { timezones: TIMEZONES } };
   if (pathname === "/api/v1/schedules/preview") return previewResponse(body);
