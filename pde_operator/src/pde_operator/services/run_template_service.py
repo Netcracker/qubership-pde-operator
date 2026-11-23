@@ -102,6 +102,34 @@ class RunTemplateService:
         await self._session.refresh(template)
         return template
 
+    async def clone_template(self, template_id: UUID) -> RunTemplate:
+        template = await self._session.get(RunTemplate, template_id)
+        if template is None:
+            raise RunTemplateNotFoundError(template_id)
+        if template.template_kind != "simple":
+            raise RunTemplateKindError(template_id, expected="simple", actual=template.template_kind)
+
+        cloned = RunTemplate(
+            id=uuid4(),
+            name=f"{template.name} (clone)",
+            description=template.description,
+            tags=list(template.tags or []),
+            template_kind="simple",
+            declarative_spec=None,
+            profile_id=template.profile_id,
+            pipeline_data=template.pipeline_data,
+            pipeline_vars=template.pipeline_vars,
+            pipeline_vars_secure=template.pipeline_vars_secure,
+            is_dry_run=template.is_dry_run,
+            log_level=template.log_level,
+            env_vars=dict(template.env_vars) if template.env_vars is not None else None,
+            pde_image=template.pde_image,
+        )
+        self._session.add(cloned)
+        await self._session.commit()
+        await self._session.refresh(cloned)
+        return cloned
+
     async def delete_template(self, template_id: UUID) -> None:
         template = await self._session.get(RunTemplate, template_id)
         if template is None:
