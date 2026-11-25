@@ -5,6 +5,7 @@ import type { CatalogSubview, TemplateForm } from "../../lib/types";
 import type { AppMessages } from "./useAppMessages";
 import type { GoFn } from "./useAppRouting";
 import { getHost } from "../../host/registry";
+import { routes } from "../routing";
 
 type UseCatalogArgs = {
   tab: string;
@@ -108,21 +109,21 @@ export function useCatalog({ tab, catalogSubview, go, messages }: UseCatalogArgs
 
   const openEdit = React.useCallback(
     async (id: string) => {
-      if (await loadForEdit(id)) go({ tab: "catalog", catalogSubview: "edit", catalogId: id });
+      if (await loadForEdit(id)) go(routes.catalogEdit(id));
     },
     [go, loadForEdit],
   );
 
   const openCreateRun = React.useCallback(
     (id: string) => {
-      go({ tab: "create", createMode: "create", templateId: id });
+      go(routes.createFromTemplate(id));
     },
     [go],
   );
 
   const openHistory = React.useCallback(
     (templateId: string) => {
-      go({ tab: "list", templateId });
+      go(routes.templateHistory(templateId));
     },
     [go],
   );
@@ -137,12 +138,12 @@ export function useCatalog({ tab, catalogSubview, go, messages }: UseCatalogArgs
           await apiJson("/run-templates", { method: "POST", body: JSON.stringify(payload) });
           setFlash("Template created");
           setTemplateForm(emptyTemplateForm());
-          go({ tab: "catalog", catalogSubview: "list" });
+          go(routes.catalogList());
           await loadList({ page: 0 });
         } else {
           await apiJson(`/run-templates/${templateForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
           setFlash("Template updated");
-          go({ tab: "catalog", catalogSubview: "list" });
+          go(routes.catalogList());
           await loadList();
         }
       } catch (e) {

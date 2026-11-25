@@ -1,4 +1,5 @@
 import { apiJson } from "../../api/client";
+import { routes } from "../routing";
 import { errMsg, paginatedQuery } from "../../lib/format";
 import { emptyProfileForm, profilePayload, profileToForm } from "../../lib/profiles";
 import type { ProfileForm, ProfileSubview } from "../../lib/types";
@@ -76,7 +77,7 @@ export function useProfiles({ tab, profileSubview, go, messages, onProfilesChang
 
   const openProfileEdit = React.useCallback(
     async (id: string) => {
-      go({ tab: "profiles", profileSubview: "edit", profileId: id });
+      go(routes.profileEdit(id));
       await loadProfileForEdit(id);
     },
     [go, loadProfileForEdit],
@@ -92,13 +93,13 @@ export function useProfiles({ tab, profileSubview, go, messages, onProfilesChang
           await apiJson("/profiles", { method: "POST", body: JSON.stringify(payload) });
           setFlash("Profile created");
           setProfileForm(emptyProfileForm());
-          go({ tab: "profiles", profileSubview: "list" });
+          go(routes.profiles());
           await loadProfileList({ page: 0 });
           await onProfilesChanged?.();
         } else {
           await apiJson(`/profiles/${profileForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
           setFlash("Profile updated");
-          go({ tab: "profiles", profileSubview: "list" });
+          go(routes.profiles());
           await loadProfileList();
           await onProfilesChanged?.();
         }

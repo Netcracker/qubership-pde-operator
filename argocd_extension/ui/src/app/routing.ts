@@ -161,11 +161,50 @@ function browserPath(appPath: string): string {
   return `${base}${appPath}` || appPath;
 }
 
+export type RouteTarget = Partial<RouteState> & Pick<RouteState, "tab">;
+
+function urlFor(appPath: string): string {
+  return browserPath(appPath) + window.location.search + window.location.hash;
+}
+
 export function navigate(appPath: string, { replace = false } = {}) {
-  const url = browserPath(appPath) + window.location.search + window.location.hash;
+  const url = urlFor(appPath);
   if (replace) window.history.replaceState(null, "", url);
   else window.history.pushState(null, "", url);
 }
+
+export function hrefFor(state: RouteTarget): string {
+  return urlFor(pathFor(state));
+}
+
+export const routes = {
+  catalogList: (): RouteTarget => ({ tab: "catalog", catalogSubview: "list" }),
+  catalogCreate: (): RouteTarget => ({ tab: "catalog", catalogSubview: "create" }),
+  catalogEdit: (catalogId: string): RouteTarget => ({ tab: "catalog", catalogSubview: "edit", catalogId }),
+  create: (): RouteTarget => ({ tab: "create", createMode: "create" }),
+  createFromTemplate: (templateId: string): RouteTarget => ({ tab: "create", createMode: "create", templateId }),
+  retry: (runId: string): RouteTarget => ({ tab: "create", createMode: "retry", runId }),
+  runs: (): RouteTarget => ({ tab: "list" }),
+  templateHistory: (templateId: string): RouteTarget => ({ tab: "list", templateId }),
+  scheduleHistory: (scheduleId: string): RouteTarget => ({ tab: "list", scheduleId }),
+  runDetail: (runId: string, detailSubview: DetailSubview = "info"): RouteTarget => ({
+    tab: "detail",
+    runId,
+    detailSubview,
+  }),
+  profiles: (): RouteTarget => ({ tab: "profiles", profileSubview: "list" }),
+  profileCreate: (): RouteTarget => ({ tab: "profiles", profileSubview: "create" }),
+  profileEdit: (profileId: string): RouteTarget => ({ tab: "profiles", profileSubview: "edit", profileId }),
+  schedules: (): RouteTarget => ({ tab: "schedules", scheduleSubview: "list" }),
+  scheduleCreate: (): RouteTarget => ({ tab: "schedules", scheduleSubview: "create" }),
+  scheduleCreateFrom: (templateId: string): RouteTarget => ({
+    tab: "schedules",
+    scheduleSubview: "create",
+    templateId,
+  }),
+  scheduleEdit: (scheduleId: string): RouteTarget => ({ tab: "schedules", scheduleSubview: "edit", scheduleId }),
+  settings: (): RouteTarget => ({ tab: "settings" }),
+};
 
 export function ensureCanonicalListPath() {
   const prefix = routePrefix();

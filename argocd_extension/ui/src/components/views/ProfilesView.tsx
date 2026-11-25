@@ -1,3 +1,4 @@
+import { hrefFor, routes } from "../../app/routing";
 import type { ProfileForm, ProfileSubview } from "../../lib/types";
 import { fmt, pageRange } from "../../lib/format";
 import { Btn, Field, Pager } from "../ui";
@@ -28,7 +29,7 @@ export function ProfilesView(props: {
       <section>
         <div className="pde-toolbar">
           <h1>{mode === "create" ? "New profile" : "Edit profile"}</h1>
-          <Btn onClick={() => props.onSubview("list")} icon="arrow-left">
+          <Btn onClick={() => props.onSubview("list")} href={hrefFor(routes.profiles())} icon="arrow-left">
             Back to list
           </Btn>
         </div>
@@ -53,7 +54,11 @@ export function ProfilesView(props: {
     <section>
       <div className="pde-toolbar pde-toolbar-end">
         <div className="pde-toolbar-right">
-          <Btn onClick={() => props.onSubview("create")} icon="plus">
+          <Btn
+            onClick={() => props.onSubview("create")}
+            href={hrefFor(routes.profileCreate())}
+            icon="plus"
+          >
             New profile
           </Btn>
           <Btn onClick={props.onRefresh} disabled={loading} icon="redo">
@@ -87,7 +92,12 @@ export function ProfilesView(props: {
                   <td className="pde-mono">{fmt(p.updated_at)}</td>
                   <td>
                     <div className="pde-row-actions">
-                      <Btn small onClick={() => props.onEdit(p.id)} icon="pencil-alt">
+                      <Btn
+                        small
+                        onClick={() => props.onEdit(p.id)}
+                        href={hrefFor(routes.profileEdit(p.id))}
+                        icon="pencil-alt"
+                      >
                         Edit
                       </Btn>
                       <Btn small onClick={() => props.onDelete(p.id)} disabled={p.id === "default"} icon="times">

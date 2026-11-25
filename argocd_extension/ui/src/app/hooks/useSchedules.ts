@@ -3,6 +3,7 @@ import { errMsg, paginatedQuery } from "../../lib/format";
 import { applyTemplateToScheduleForm, emptyScheduleForm, schedulePayload, scheduleToForm } from "../../lib/schedules";
 import { templateToCreateForm } from "../../lib/templates";
 import type { CreateForm, ScheduleForm, ScheduleSubview } from "../../lib/types";
+import { routes } from "../routing";
 import type { AppMessages } from "./useAppMessages";
 import type { GoFn } from "./useAppRouting";
 
@@ -143,7 +144,7 @@ export function useSchedules({ tab, scheduleSubview, go, messages }: UseSchedule
   const openScheduleCreate = React.useCallback(
     (templateId = "") => {
       resetScheduleForm();
-      go({ tab: "schedules", scheduleSubview: "create", templateId });
+      go(templateId ? routes.scheduleCreateFrom(templateId) : routes.scheduleCreate());
       if (templateId) void loadFromTemplate(templateId);
     },
     [go, loadFromTemplate, resetScheduleForm],
@@ -151,7 +152,7 @@ export function useSchedules({ tab, scheduleSubview, go, messages }: UseSchedule
 
   const openScheduleEdit = React.useCallback(
     async (id: string) => {
-      go({ tab: "schedules", scheduleSubview: "edit", scheduleId: id });
+      go(routes.scheduleEdit(id));
       await loadScheduleForEdit(id);
     },
     [go, loadScheduleForEdit],
@@ -159,7 +160,7 @@ export function useSchedules({ tab, scheduleSubview, go, messages }: UseSchedule
 
   const openScheduleHistory = React.useCallback(
     (id: string) => {
-      go({ tab: "list", scheduleId: id });
+      go(routes.scheduleHistory(id));
     },
     [go],
   );
@@ -180,7 +181,7 @@ export function useSchedules({ tab, scheduleSubview, go, messages }: UseSchedule
         }
         // Returning to the list subview re-runs its load effect; no explicit fetch needed here.
         setPage(0);
-        go({ tab: "schedules", scheduleSubview: "list" });
+        go(routes.schedules());
       } catch (e) {
         setError(errMsg(e));
       } finally {
@@ -226,7 +227,7 @@ export function useSchedules({ tab, scheduleSubview, go, messages }: UseSchedule
       try {
         const run = (await apiJson(`/schedules/${id}/trigger`, { method: "POST" })) as any;
         setFlash("Run started");
-        go({ tab: "detail", runId: String(run.id), detailSubview: "info" });
+        go(routes.runDetail(String(run.id)));
       } catch (e) {
         setError(errMsg(e));
       }

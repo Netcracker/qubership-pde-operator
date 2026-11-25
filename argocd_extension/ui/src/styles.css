@@ -206,6 +206,11 @@
   margin-right: 0.45em;
 }
 
+.pde-ext a.pde-btn,
+.pde-ext a.pde-tab {
+  text-decoration: none;
+}
+
 .pde-ext .pde-toggle {
   display: flex;
   align-items: center;

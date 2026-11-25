@@ -1,8 +1,9 @@
 import React from "react";
+import { hrefFor, routes } from "../../app/routing";
 import { PLACEHOLDER_KV_KEY, PLACEHOLDER_KV_VALUE, PLACEHOLDER_PIPELINE_DATA } from "../../lib/constants";
 import type { CatalogSubview, CreateForm, TemplateForm } from "../../lib/types";
 import { fmt, pageRange } from "../../lib/format";
-import { Btn, Field, FieldBlock, KeyValueEditor, Pager, TemplateKindBadge } from "../ui";
+import { Btn, Field, FieldBlock, KeyValueEditor, Pager, TemplateKindBadge, rowLinkHandlers } from "../ui";
 
 export function CatalogView(props: {
   subview: CatalogSubview;
@@ -54,6 +55,9 @@ export function CatalogView(props: {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const uploadInputRef = React.useRef<HTMLInputElement>(null);
   const selected = selectedId ? templates.find((t: any) => t.id === selectedId) || null : null;
+  const selectedTemplateId = selected ? String(selected.id) : "";
+  const canSchedule = !!selected;
+  const canEdit = !!selected && selected.template_kind !== "declarative";
 
   React.useEffect(() => {
     if (!props.adminMode || (selectedId && !templates.some((t: any) => t.id === selectedId))) {
@@ -71,7 +75,7 @@ export function CatalogView(props: {
       <section>
         <div className="pde-toolbar">
           <h1>{mode === "create" ? "New run template" : "Edit run template"}</h1>
-          <Btn onClick={() => props.onSubview("list")} icon="arrow-left">
+          <Btn onClick={() => props.onSubview("list")} href={hrefFor(routes.catalogList())} icon="arrow-left">
             Back to catalog
           </Btn>
         </div>
@@ -98,7 +102,11 @@ export function CatalogView(props: {
       <div className="pde-toolbar pde-toolbar-end">
         <div className="pde-toolbar-right">
           {props.adminMode ? (
-            <Btn onClick={() => props.onSubview("create")} icon="plus">
+            <Btn
+              onClick={() => props.onSubview("create")}
+              href={hrefFor(routes.catalogCreate())}
+              icon="plus"
+            >
               New Simple Template
             </Btn>
           ) : null}
@@ -134,24 +142,34 @@ export function CatalogView(props: {
       {props.adminMode ? (
         <div className="pde-toolbar pde-toolbar-end">
           <div className="pde-toolbar-right">
-            <Btn onClick={() => selected && props.onSchedule(selected.id)} icon="clock" disabled={!selected}>
+            <Btn
+              onClick={() => props.onSchedule(selectedTemplateId)}
+              href={canSchedule ? hrefFor(routes.scheduleCreateFrom(selectedTemplateId)) : undefined}
+              icon="clock"
+              disabled={!canSchedule}
+            >
               Schedule
             </Btn>
             <Btn
-              onClick={() => selected && selected.template_kind !== "declarative" && props.onClone(selected.id)}
+              onClick={() => props.onClone(selectedTemplateId)}
               icon="copy"
-              disabled={!selected || selected.template_kind === "declarative" || !!props.cloningId}
+              disabled={!canEdit || !!props.cloningId}
             >
               Clone
             </Btn>
             <Btn
-              onClick={() => selected && selected.template_kind !== "declarative" && props.onEdit(selected.id)}
+              onClick={() => props.onEdit(selectedTemplateId)}
+              href={canEdit ? hrefFor(routes.catalogEdit(selectedTemplateId)) : undefined}
               icon="pencil-alt"
-              disabled={!selected || selected.template_kind === "declarative"}
+              disabled={!canEdit}
             >
               Edit
             </Btn>
-            <Btn onClick={() => selected && props.onDelete(selected.id, selected.name)} icon="times" disabled={!selected}>
+            <Btn
+              onClick={() => props.onDelete(selectedTemplateId, selected?.name)}
+              icon="times"
+              disabled={!canSchedule}
+            >
               Delete
             </Btn>
           </div>
@@ -199,10 +217,12 @@ export function CatalogView(props: {
                 <tr
                   key={t.id}
                   className={canWrite ? "pde-clickable" : undefined}
-                  onClick={canWrite ? () => props.onOpen(t.id) : undefined}
+                  {...(canWrite
+                    ? rowLinkHandlers(hrefFor(routes.createFromTemplate(t.id)), () => props.onOpen(t.id))
+                    : {})}
                 >
                   {props.adminMode ? (
-                    <td onClick={(e: any) => e.stopPropagation()}>
+                    <td onClick={(e: any) => e.stopPropagation()} onAuxClick={(e: any) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         aria-label={`Select ${t.name}`}
@@ -223,10 +243,18 @@ export function CatalogView(props: {
                   <td>{(t.tags || []).join(", ") || "—"}</td>
                   <td className="pde-mono">{t.profile_id}</td>
                   <td className="pde-mono">{fmt(t.updated_at)}</td>
-                  <td onClick={(e: any) => e.stopPropagation()}>
+                  <td onClick={(e: any) => e.stopPropagation()} onAuxClick={(e: any) => e.stopPropagation()}>
                     <div className="pde-row-actions">
                       {canWrite ? (
-                        <Btn small onClick={(e: any) => { e.stopPropagation(); props.onOpen(t.id); }} icon="play">
+                        <Btn
+                          small
+                          onClick={(e: any) => {
+                            e.stopPropagation();
+                            props.onOpen(t.id);
+                          }}
+                          href={hrefFor(routes.createFromTemplate(t.id))}
+                          icon="play"
+                        >
                           Run
                         </Btn>
                       ) : null}
@@ -236,6 +264,7 @@ export function CatalogView(props: {
                           e.stopPropagation();
                           props.onHistory(t.id);
                         }}
+                        href={hrefFor(routes.templateHistory(t.id))}
                         icon="history"
                       >
                         History

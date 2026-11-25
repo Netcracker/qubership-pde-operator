@@ -6,6 +6,8 @@ import { ProfilesView } from "../components/views/ProfilesView";
 import { SchedulesView } from "../components/views/SchedulesView";
 import { SettingsView } from "../components/views/SettingsView";
 import { StatusMessage, TabBar } from "../components/ui";
+import type { Tab } from "../lib/types";
+import { appPathname, hrefFor, pathFor, routes, type RouteTarget } from "./routing";
 import { useAppMessages } from "./hooks/useAppMessages";
 import { useAppRouting, type RouteSideEffects } from "./hooks/useAppRouting";
 import { useAuthToken } from "./hooks/useAuthToken";
@@ -52,39 +54,58 @@ export function PdeExtensionApp(_props: unknown) {
   const canWrite = capabilities.canWrite;
   const adminMode = canWrite && userPreferences.preferences.adminMode;
 
+  const routeForTab = React.useCallback(
+    (next: Tab): RouteTarget => {
+      if (next === "catalog") return routes.catalogList();
+      if (next === "create") return routes.create();
+      if (next === "detail") return routes.runDetail(runId, detailSubview);
+      if (next === "list") return routes.runs();
+      if (next === "profiles") return routes.profiles();
+      if (next === "schedules") return routes.schedules();
+      return routes.settings();
+    },
+    [runId, detailSubview],
+  );
+
   React.useEffect(() => {
     if (!capabilities.loaded) return;
     if (canWrite) return;
     if (tab === "create" || tab === "profiles") {
-      go({ tab: "catalog", catalogSubview: "list" }, { replace: true });
+      go(routes.catalogList(), { replace: true });
       return;
     }
     if (tab === "catalog" && catalogSubview !== "list") {
       catalog.resetTemplateForm();
-      go({ tab: "catalog", catalogSubview: "list" }, { replace: true });
+      go(routes.catalogList(), { replace: true });
     }
   }, [capabilities.loaded, canWrite, tab, catalogSubview, go, catalog.resetTemplateForm]);
 
   React.useEffect(() => {
+    if (!capabilities.loaded) return;
     if (adminMode) return;
     if (tab === "profiles") {
-      go({ tab: "catalog", catalogSubview: "list" }, { replace: true });
+      go(routes.catalogList(), { replace: true });
       return;
     }
     if (tab === "schedules" && scheduleSubview !== "list") {
-      go({ tab: "schedules", scheduleSubview: "list" }, { replace: true });
+      go(routes.schedules(), { replace: true });
       return;
     }
     if (tab === "catalog" && catalogSubview !== "list") {
       catalog.resetTemplateForm();
-      go({ tab: "catalog", catalogSubview: "list" }, { replace: true });
+      go(routes.catalogList(), { replace: true });
     }
-  }, [adminMode, tab, catalogSubview, go, catalog.resetTemplateForm]);
+  }, [capabilities.loaded, adminMode, tab, catalogSubview, scheduleSubview, go, catalog.resetTemplateForm]);
 
   effectsRef.current = {
     onCreateRoute: runs.resetCreateForm,
     onCatalogCreateRoute: catalog.resetTemplateForm,
-    onCatalogEditRoute: catalog.loadForEdit,
+    onCatalogEditRoute: async (id: string) => {
+      const ok = await catalog.loadForEdit(id);
+      if (!ok && appPathname() === pathFor(routes.catalogEdit(id))) {
+        go(routes.catalogList(), { replace: true });
+      }
+    },
     onProfilesCreateRoute: profiles.resetProfileForm,
     onProfilesEditRoute: profiles.loadProfileForEdit,
     onSchedulesCreateRoute: (tplId: string) => {
@@ -121,27 +142,18 @@ export function PdeExtensionApp(_props: unknown) {
           detailEnabled={!!runId}
           adminMode={adminMode}
           canWrite={canWrite}
+          hrefForTab={(next) => hrefFor(routeForTab(next))}
           onTab={(next) => {
-            if (next === "catalog") {
-              catalog.resetTemplateForm();
-              go({ tab: "catalog", catalogSubview: "list" });
-            } else if (next === "list") go({ tab: "list" });
-            else if (next === "detail") go({ tab: "detail", runId, detailSubview });
+            if (next === "catalog") catalog.resetTemplateForm();
             else if (next === "create") {
               if (!canWrite) return;
               runs.resetCreateForm();
-              go({ tab: "create", createMode: "create" });
             } else if (next === "profiles") {
               if (!adminMode) return;
               profiles.resetProfileForm();
-              go({ tab: "profiles", profileSubview: "list" });
-            } else if (next === "schedules") {
-              schedules.resetScheduleForm();
-              go({ tab: "schedules", scheduleSubview: "list" });
-            } else if (next === "settings") {
-              settings.resetSettingsForm();
-              go({ tab: "settings" });
-            }
+            } else if (next === "schedules") schedules.resetScheduleForm();
+            else if (next === "settings") settings.resetSettingsForm();
+            go(routeForTab(next));
           }}
         />
 
@@ -169,10 +181,10 @@ export function PdeExtensionApp(_props: unknown) {
               if (!adminMode && next !== "list") return;
               if (next === "list") {
                 catalog.resetTemplateForm();
-                go({ tab: "catalog", catalogSubview: "list" });
+                go(routes.catalogList());
               } else if (next === "create") {
                 catalog.resetTemplateForm();
-                go({ tab: "catalog", catalogSubview: "create" });
+                go(routes.catalogCreate());
               } else {
                 setCatalogSubview(next);
               }
@@ -240,7 +252,7 @@ export function PdeExtensionApp(_props: unknown) {
                 if (detailSubview === "viewer") void runs.loadReport(runId, { sourceUpdatedAt: data?.report_updated_at ?? null });
               });
             }}
-            onSubview={(next) => go({ tab: "detail", runId, detailSubview: next })}
+            onSubview={(next) => go(routes.runDetail(runId, next))}
             onOpenRetryOf={runs.openDetail}
             onOpenFromTemplate={runs.openFromTemplate}
             onCancel={runs.cancelRun}
@@ -281,10 +293,10 @@ export function PdeExtensionApp(_props: unknown) {
             onSubview={(next) => {
               if (next === "list") {
                 profiles.resetProfileForm();
-                go({ tab: "profiles", profileSubview: "list" });
+                go(routes.profiles());
               } else if (next === "create") {
                 profiles.resetProfileForm();
-                go({ tab: "profiles", profileSubview: "create" });
+                go(routes.profileCreate());
               } else {
                 setProfileSubview(next);
               }
@@ -318,7 +330,7 @@ export function PdeExtensionApp(_props: unknown) {
             onSubview={(next) => {
               if (next === "list") {
                 schedules.resetScheduleForm();
-                go({ tab: "schedules", scheduleSubview: "list" });
+                go(routes.schedules());
               } else {
                 schedules.openScheduleCreate();
               }
