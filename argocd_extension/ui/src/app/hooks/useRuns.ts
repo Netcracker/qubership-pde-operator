@@ -5,6 +5,7 @@ import { createFormToPayload, emptyCreateForm, emptyRetryForm, ensureKvPairs, kv
 import { scheduleTriggerRef } from "../../lib/schedules";
 import { templateToCreateForm } from "../../lib/templates";
 import type { CreateForm, LogStatus, ReportStatus, RetryForm } from "../../lib/types";
+import { routes } from "../routing";
 import type { AppMessages } from "./useAppMessages";
 import type { GoFn } from "./useAppRouting";
 
@@ -52,6 +53,7 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
   const lastReportUpdatedAtRef = React.useRef<string | null>(null);
   const logLoadSeqRef = React.useRef(0);
   const reportLoadSeqRef = React.useRef(0);
+  const detailLoadSeqRef = React.useRef(0);
   const [profileOptions, setProfileOptions] = React.useState<any[]>([]);
   const [form, setForm] = React.useState<CreateForm>(emptyCreateForm());
   const [retryForm, setRetryForm] = React.useState<RetryForm>(emptyRetryForm());
@@ -63,6 +65,7 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
   const [formReady, setFormReady] = React.useState(!templateId);
 
   const resetDetail = React.useCallback(() => {
+    detailLoadSeqRef.current += 1;
     logLoadSeqRef.current += 1;
     reportLoadSeqRef.current += 1;
     setDetail(null);
@@ -117,27 +120,30 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
 
   const clearTemplateFilter = React.useCallback(() => {
     setPage(0);
-    go({ tab: "list", templateId: "" });
+    go(routes.runs());
   }, [go]);
 
   const clearScheduleFilter = React.useCallback(() => {
     setPage(0);
-    go({ tab: "list", scheduleId: "" });
+    go(routes.runs());
   }, [go]);
 
   const loadDetail = React.useCallback(
     async (id: string, { quiet = false } = {}) => {
+      const seq = ++detailLoadSeqRef.current;
       if (!quiet) setDetailLoading(true);
       try {
         const data = await apiJson(`/runs/${id}`);
+        if (seq !== detailLoadSeqRef.current) return null;
         setDetail(data);
         if (!quiet) setError("");
         return data;
       } catch (e) {
+        if (seq !== detailLoadSeqRef.current) return null;
         if (!quiet) setError(errMsg(e));
         return null;
       } finally {
-        if (!quiet) setDetailLoading(false);
+        if (seq === detailLoadSeqRef.current && !quiet) setDetailLoading(false);
       }
     },
     [setError],
@@ -271,14 +277,14 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
   const openDetail = React.useCallback(
     (id: string, subview: "info" | "logs" | "viewer" = "info") => {
       resetDetail();
-      go({ tab: "detail", runId: id, detailSubview: subview });
+      go(routes.runDetail(id, subview));
     },
     [go, resetDetail],
   );
 
   const openRetry = React.useCallback(
     (id: string) => {
-      go({ tab: "create", createMode: "retry", runId: id });
+      go(routes.retry(id));
       void loadRetryForm(id);
     },
     [go, loadRetryForm],
@@ -286,7 +292,7 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
 
   const openFromTemplate = React.useCallback(
     (id: string) => {
-      go({ tab: "create", createMode: "create", templateId: id });
+      go(routes.createFromTemplate(id));
     },
     [go],
   );
@@ -350,7 +356,7 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
         }
         setFlash("Run created");
         setPage(0);
-        go({ tab: "list" });
+        go(routes.runs());
         await loadRuns();
       }
     } catch (e) {
@@ -418,6 +424,7 @@ export function useRuns({ tab, createMode, runId, templateId, scheduleId, detail
 
   React.useEffect(() => {
     if (tab !== "detail" || !runId) return;
+    setDetail(null);
     logLoadSeqRef.current += 1;
     reportLoadSeqRef.current += 1;
     setLogText("");

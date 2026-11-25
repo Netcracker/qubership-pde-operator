@@ -1,3 +1,4 @@
+import { hrefFor, routes } from "../../app/routing";
 import type { DetailSubview, LogStatus, ReportStatus } from "../../lib/types";
 import { ansiToHtml } from "../../lib/ansi";
 import { fmt, fmtDuration, fmtTemplateRef, parseRunProgress, scrollLogToEnd } from "../../lib/format";
@@ -5,7 +6,7 @@ import { canCancel, canRetry } from "../../lib/runs";
 import { isScheduledRun, scheduleIdFromTrigger } from "../../lib/schedules";
 import { PipelineViewer } from "../pipeline-viewer/PipelineViewer";
 import { DetailMetaCard, MetaItem, MetaSubsection, PipelineDataCard, VarsCard } from "../RunParamsCards";
-import { Badge, Btn, FinishCodeBadge, ProgressBar } from "../ui";
+import { Badge, Btn, FinishCodeBadge, NavLink, ProgressBar, TabLink } from "../ui";
 
 function LogConsole({ text, logStatus }: { text: string; logStatus: LogStatus }) {
   const ref = React.useRef<HTMLPreElement>(null);
@@ -27,7 +28,11 @@ function ToolbarSep() {
   );
 }
 
-function DetailTabBar(props: { subview: DetailSubview; onSubview: (s: DetailSubview) => void }) {
+function DetailTabBar(props: {
+  subview: DetailSubview;
+  runId: string;
+  onSubview: (s: DetailSubview) => void;
+}) {
   const items: { id: DetailSubview; label: string }[] = [
     { id: "info", label: "Info" },
     { id: "logs", label: "Logs" },
@@ -36,24 +41,16 @@ function DetailTabBar(props: { subview: DetailSubview; onSubview: (s: DetailSubv
   return (
     <nav className="pde-tabs pde-detail-tabs">
       {items.map((item) => (
-        <button
+        <TabLink
           key={item.id}
-          type="button"
-          className={`pde-tab${props.subview === item.id ? " is-active" : ""}`}
+          href={hrefFor(routes.runDetail(props.runId, item.id))}
+          active={props.subview === item.id}
           onClick={() => props.onSubview(item.id)}
         >
           {item.label}
-        </button>
+        </TabLink>
       ))}
     </nav>
-  );
-}
-
-function NavLink(props: { onClick: () => void; children: any }) {
-  return (
-    <button type="button" className="pde-nav-link pde-mono pde-wrap" onClick={props.onClick}>
-      {props.children}
-    </button>
   );
 }
 
@@ -122,7 +119,12 @@ export function DetailView(props: {
               <Btn onClick={() => props.onCancel(String(detail.id))} disabled={!canCancel(detail)} icon="times-circle">
                 Cancel
               </Btn>
-              <Btn onClick={() => props.onRetry(String(detail.id))} disabled={!canRetry(detail)} icon="redo">
+              <Btn
+                onClick={() => props.onRetry(String(detail.id))}
+                href={hrefFor(routes.retry(String(detail.id)))}
+                disabled={!canRetry(detail)}
+                icon="redo"
+              >
                 Retry
               </Btn>
             </>
@@ -130,7 +132,7 @@ export function DetailView(props: {
         </div>
       </div>
 
-      <DetailTabBar subview={subview} onSubview={props.onSubview} />
+      <DetailTabBar subview={subview} runId={String(detail.id)} onSubview={props.onSubview} />
 
       {subview === "info" ? (
         <div className="pde-detail-sections">
@@ -174,7 +176,11 @@ export function DetailView(props: {
             <MetaSubsection>
               <MetaItem label="From template">
                 {detail.created_from_template_id ? (
-                  <NavLink onClick={() => props.onOpenFromTemplate(String(detail.created_from_template_id))}>
+                  <NavLink
+                    className="pde-mono pde-wrap"
+                    href={hrefFor(routes.createFromTemplate(String(detail.created_from_template_id)))}
+                    onClick={() => props.onOpenFromTemplate(String(detail.created_from_template_id))}
+                  >
                     {fmtTemplateRef(detail.created_from_template_id, detail.created_from_template_name)}
                   </NavLink>
                 ) : (
@@ -192,7 +198,11 @@ export function DetailView(props: {
               </MetaItem>
               <MetaItem label="Retry of">
                 {detail.retry_of_run_id ? (
-                  <NavLink onClick={() => props.onOpenRetryOf(String(detail.retry_of_run_id))}>
+                  <NavLink
+                    className="pde-mono pde-wrap"
+                    href={hrefFor(routes.runDetail(String(detail.retry_of_run_id)))}
+                    onClick={() => props.onOpenRetryOf(String(detail.retry_of_run_id))}
+                  >
                     {String(detail.retry_of_run_id)}
                   </NavLink>
                 ) : (

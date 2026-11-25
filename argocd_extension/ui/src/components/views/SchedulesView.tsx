@@ -1,10 +1,11 @@
+import { hrefFor, routes } from "../../app/routing";
 import type { CreateForm, ScheduleForm, ScheduleSubview } from "../../lib/types";
 import { fmt, pageRange } from "../../lib/format";
 import { kvPairsToText } from "../../lib/runs";
 import { OVERLAP_POLICIES, fmtAge, fmtFireCountdown, fmtLastFire } from "../../lib/schedules";
 import { fetchDeclarativeOptions } from "../../lib/templates";
 import { PipelineDataCard, VarsCard } from "../RunParamsCards";
-import { Btn, Field, FieldBlock, Pager } from "../ui";
+import { Btn, Field, FieldBlock, NavLink, Pager } from "../ui";
 import { RunSettingsFields } from "./CatalogView";
 import { DeclarativeRunTemplateFormView } from "./DeclarativeRunTemplateFormView";
 
@@ -44,7 +45,7 @@ export function SchedulesView(props: {
       <section>
         <div className="pde-toolbar">
           <h1>{mode === "create" ? "New scheduled run" : "Edit scheduled run"}</h1>
-          <Btn onClick={() => props.onSubview("list")} icon="arrow-left">
+          <Btn onClick={() => props.onSubview("list")} href={hrefFor(routes.schedules())} icon="arrow-left">
             Back to list
           </Btn>
         </div>
@@ -79,7 +80,11 @@ export function SchedulesView(props: {
       <div className="pde-toolbar pde-toolbar-end">
         <div className="pde-toolbar-right">
           {props.adminMode ? (
-            <Btn onClick={() => props.onSubview("create")} icon="plus">
+            <Btn
+              onClick={() => props.onSubview("create")}
+              href={hrefFor(routes.scheduleCreate())}
+              icon="plus"
+            >
               New schedule
             </Btn>
           ) : null}
@@ -139,13 +144,13 @@ export function SchedulesView(props: {
                         <span className="pde-muted">{fmtLastFire(schedule)}</span>
                         <span className="pde-muted">· {fmtAge(schedule.last_fire_at)}</span>
                         {schedule.last_run_id ? (
-                          <button
-                            type="button"
-                            className="pde-nav-link pde-mono"
+                          <NavLink
+                            className="pde-mono"
+                            href={hrefFor(routes.runDetail(String(schedule.last_run_id)))}
                             onClick={() => props.onOpenRun(String(schedule.last_run_id))}
                           >
                             view run
-                          </button>
+                          </NavLink>
                         ) : null}
                       </span>
                     ) : (
@@ -159,12 +164,22 @@ export function SchedulesView(props: {
                           <Btn small onClick={() => props.onRunNow(String(schedule.id))} icon="play">
                             Run now
                           </Btn>
-                          <Btn small onClick={() => props.onEdit(String(schedule.id))} icon="pencil-alt">
+                          <Btn
+                            small
+                            onClick={() => props.onEdit(String(schedule.id))}
+                            href={hrefFor(routes.scheduleEdit(String(schedule.id)))}
+                            icon="pencil-alt"
+                          >
                             Edit
                           </Btn>
                         </>
                       ) : null}
-                      <Btn small onClick={() => props.onHistory(String(schedule.id))} icon="history">
+                      <Btn
+                        small
+                        onClick={() => props.onHistory(String(schedule.id))}
+                        href={hrefFor(routes.scheduleHistory(String(schedule.id)))}
+                        icon="history"
+                      >
                         History
                       </Btn>
                       {props.adminMode ? (

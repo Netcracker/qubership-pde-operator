@@ -1,7 +1,8 @@
+import { hrefFor, routes } from "../../app/routing";
 import { fmt, fmtDuration, pageRange, shortId } from "../../lib/format";
 import { canCancel, canRetry } from "../../lib/runs";
 import { isScheduledRun } from "../../lib/schedules";
-import { Badge, Btn, Field, Pager } from "../ui";
+import { Badge, Btn, Field, Pager, rowLinkHandlers } from "../ui";
 
 export function ListView(props: {
   runs: any[];
@@ -38,12 +39,12 @@ export function ListView(props: {
         <h1>{title}</h1>
         <div className="pde-toolbar-right">
           {templateFilter ? (
-            <Btn onClick={props.onClearTemplate} icon="times">
+            <Btn onClick={props.onClearTemplate} href={hrefFor(routes.runs())} icon="times">
               Clear
             </Btn>
           ) : null}
           {scheduleFilter ? (
-            <Btn onClick={props.onClearSchedule} icon="times">
+            <Btn onClick={props.onClearSchedule} href={hrefFor(routes.runs())} icon="times">
               Clear
             </Btn>
           ) : null}
@@ -84,7 +85,11 @@ export function ListView(props: {
               </tr>
             ) : (
               runs.map((run: any) => (
-                <tr key={String(run.id)} className="pde-clickable" onClick={() => props.onOpen(String(run.id))}>
+                <tr
+                  key={String(run.id)}
+                  className="pde-clickable"
+                  {...rowLinkHandlers(hrefFor(routes.runDetail(String(run.id))), () => props.onOpen(String(run.id)))}
+                >
                   <td>
                     <Badge status={run.status} />
                     {isScheduledRun(run.triggered_by) ? (
@@ -99,13 +104,19 @@ export function ListView(props: {
                   <td className="pde-mono">{fmt(run.created_at)}</td>
                   <td className="pde-mono">{fmt(run.finished_at)}</td>
                   <td className="pde-mono">{fmtDuration(run)}</td>
-                  <td onClick={(e: any) => e.stopPropagation()}>
+                  <td onClick={(e: any) => e.stopPropagation()} onAuxClick={(e: any) => e.stopPropagation()}>
                     {canWrite ? (
                       <div className="pde-row-actions">
                         <Btn small disabled={!canCancel(run)} onClick={() => props.onCancel(String(run.id))} icon="times-circle">
                           Cancel
                         </Btn>
-                        <Btn small disabled={!canRetry(run)} onClick={() => props.onRetry(String(run.id))} icon="redo">
+                        <Btn
+                          small
+                          disabled={!canRetry(run)}
+                          onClick={() => props.onRetry(String(run.id))}
+                          href={canRetry(run) ? hrefFor(routes.retry(String(run.id))) : undefined}
+                          icon="redo"
+                        >
                           Retry
                         </Btn>
                       </div>

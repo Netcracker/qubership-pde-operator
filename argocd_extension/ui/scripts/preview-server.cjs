@@ -255,6 +255,7 @@ function apiResponse(method, pathname, { body, search }) {
   const runAction = /^\/api\/v1\/runs\/([^/]+)\/(cancel|retry)$/.exec(pathname);
   const templateMatch = /^\/api\/v1\/run-templates\/([^/]+)$/.exec(pathname);
   const templateCloneMatch = /^\/api\/v1\/run-templates\/([^/]+)\/clone$/.exec(pathname);
+  const profileMatch = /^\/api\/v1\/profiles\/([^/]+)$/.exec(pathname);
   const scheduleMatch = /^\/api\/v1\/schedules\/([^/]+)$/.exec(pathname);
   const scheduleAction = /^\/api\/v1\/schedules\/([^/]+)\/(trigger|enable|disable)$/.exec(pathname);
 
@@ -288,6 +289,19 @@ function apiResponse(method, pathname, { body, search }) {
   }
   if (pathname === "/api/v1/profiles") {
     return { status: 200, body: { items: [{ id: "default", pde_image: RICH_RUN.pde_image }], total: 1 } };
+  }
+  if (profileMatch && method === "GET") {
+    return {
+      status: 200,
+      body: {
+        id: profileMatch[1],
+        pde_image: RICH_RUN.pde_image,
+        env_vars: {},
+        resources: {},
+        created_at: iso(-72 * HOUR),
+        updated_at: iso(-24 * HOUR),
+      },
+    };
   }
   if (pathname === "/api/v1/run-templates" && method === "GET") {
     const q = (search.get("q") || "").toLowerCase();

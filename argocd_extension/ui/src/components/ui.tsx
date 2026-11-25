@@ -47,8 +47,24 @@ export function TemplateKindBadge({ kind }: { kind?: string | null }) {
   );
 }
 
+export function isPlainLeftClick(e: {
+  button: number;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): boolean {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
+function openLinkInNewTab(href: string) {
+  const win = window.open(href, "_blank");
+  if (win) win.opener = null;
+}
+
 export function Btn(props: {
-  onClick?: () => void;
+  onClick?: (e?: any) => void;
+  href?: string;
   disabled?: boolean;
   primary?: boolean;
   small?: boolean;
@@ -60,12 +76,83 @@ export function Btn(props: {
     .filter(Boolean)
     .join(" ");
   const icon = !props.primary && props.icon ? props.icon : null;
+  if (props.href && !props.disabled) {
+    return (
+      <a
+        className={className}
+        href={props.href}
+        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+          if (!isPlainLeftClick(e)) return;
+          if (!props.onClick) return;
+          e.preventDefault();
+          props.onClick(e);
+        }}
+      >
+        {icon ? <i className={`fa fa-${icon}`} aria-hidden="true" /> : null}
+        {props.children}
+      </a>
+    );
+  }
   return (
     <button type={props.type || "button"} className={className} onClick={props.onClick} disabled={props.disabled}>
       {icon ? <i className={`fa fa-${icon}`} aria-hidden="true" /> : null}
       {props.children}
     </button>
   );
+}
+
+export function NavLink(props: { href: string; onClick: () => void; className?: string; children: any }) {
+  return (
+    <a
+      className={`pde-nav-link${props.className ? ` ${props.className}` : ""}`}
+      href={props.href}
+      onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (!isPlainLeftClick(e)) return;
+        e.preventDefault();
+        props.onClick();
+      }}
+    >
+      {props.children}
+    </a>
+  );
+}
+
+export function TabLink(props: { href: string; active?: boolean; onClick: () => void; children: any }) {
+  return (
+    <a
+      className={`pde-tab${props.active ? " is-active" : ""}`}
+      href={props.href}
+      onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (!isPlainLeftClick(e)) return;
+        e.preventDefault();
+        props.onClick();
+      }}
+    >
+      {props.children}
+    </a>
+  );
+}
+
+export function rowLinkHandlers(href?: string | null, onActivate?: () => void) {
+  return {
+    onMouseDown: (e: React.MouseEvent) => {
+      if (href && e.button === 1) e.preventDefault();
+    },
+    onClick: (e: React.MouseEvent) => {
+      if (!href || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        e.preventDefault();
+        openLinkInNewTab(href);
+        return;
+      }
+      onActivate?.();
+    },
+    onAuxClick: (e: React.MouseEvent) => {
+      if (!href || e.button !== 1) return;
+      e.preventDefault();
+      openLinkInNewTab(href);
+    },
+  };
 }
 
 export function Field({ label, children }: { label: string; children: any }) {
@@ -186,6 +273,7 @@ export function TabBar(props: {
   detailEnabled: boolean;
   adminMode?: boolean;
   canWrite?: boolean;
+  hrefForTab?: (t: Tab) => string | undefined;
   onTab: (t: Tab) => void;
 }) {
   const canWrite = props.canWrite !== false;
@@ -207,17 +295,28 @@ export function TabBar(props: {
       {groups.map((group, gi) => (
         <React.Fragment key={gi}>
           {gi > 0 ? <span className="pde-tab-sep" aria-hidden="true">|</span> : null}
-          {group.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`pde-tab${props.tab === item.id ? " is-active" : ""}`}
-              disabled={item.disabled}
-              onClick={() => props.onTab(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
+          {group.map((item) => {
+            const className = `pde-tab${props.tab === item.id ? " is-active" : ""}`;
+            const href = item.disabled ? undefined : props.hrefForTab?.(item.id);
+            if (href) {
+              return (
+                <TabLink key={item.id} href={href} active={props.tab === item.id} onClick={() => props.onTab(item.id)}>
+                  {item.label}
+                </TabLink>
+              );
+            }
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={className}
+                disabled={item.disabled}
+                onClick={() => props.onTab(item.id)}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </React.Fragment>
       ))}
     </nav>
